@@ -7,7 +7,7 @@ import D "mo:base/Debug";
 
 import ICRC7 "../src";
 //todo mops
-import ICRC30 "../../ICRC30/src";
+import ICRC30 "mo:icrc30";
 
 
 shared(_init_msg) actor class Example(_args : {
