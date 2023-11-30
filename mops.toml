@@ -8,6 +8,7 @@ license = "MIT"
 
 [dependencies]
 base = "https://github.com/dfinity/motoko-base#moc-0.10.0@a15ca7cd26335505e103288654f480a44463d844"
+"base-0.7.3" = "https://github.com/dfinity/motoko-base#moc-0.7.3"
 map9 = "https://github.com/ZhenyaUsenko/motoko-hash-map#v9.0.1@10b68f6ea8df5e72dfa4c07a50c8bb60a916c233"
 candy_0_3_0 = "https://github.com/icdevs/candy_library#v0.3.0@907a4e7363aac6c6a4e114ebc73e3d3f21e138af"
 stablebuffer = "https://github.com/skilesare/StableBuffer#v0.2.0@110660769d11ba93c618dc4712525d20503bdc37"
