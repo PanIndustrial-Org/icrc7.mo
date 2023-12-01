@@ -63,7 +63,7 @@ stable var icrc7_migration_state = ICRC7.init(ICRC7.initialState() , #v0_1_0(#id
 
 ```
 
-The above pattern will allow your class to call icrc().XXXXX to easily access the stable state of your class and you will not have to worry about pre or post upgrade methods.
+The above pattern will allow your class to call icrc7().XXXXX to easily access the stable state of your class and you will not have to worry about pre or post upgrade methods.
 
 ### Environment
 
@@ -92,7 +92,7 @@ The environment pattern lets you pass dynamic information about your environment
 
 ## Metadata and Ownership
 
-This class stores metadata using ICRC16 compliant heiarchical objects.  It utilizes the CandyLibrary(https://github.com/icdevsorg/candy_library) v0.3.0 to do this.
+This class stores metadata using ICRC16 compliant hierarchical objects.  It utilizes the CandyLibrary(https://github.com/icdevsorg/candy_library) v0.3.0 to do this.
 
 Users may use the Value type as well.
 

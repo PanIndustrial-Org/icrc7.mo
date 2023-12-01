@@ -678,22 +678,35 @@ module {
 
    // events
 
+   type Listener<T> = (Text, T);
+
+    /// Generic function to register a listener.
+    ///
+    /// Parameters:
+    ///     namespace: Text - The namespace identifying the listener.
+    ///     remote_func: T - A callback function to be invoked.
+    ///     listeners: Vec<Listener<T>> - The list of listeners.
+    public func register_listener<T>(namespace: Text, remote_func: T, listeners: Vec.Vector<Listener<T>>) {
+      let listener: Listener<T> = (namespace, remote_func);
+      switch(Vec.indexOf<Listener<T>>(listener, listeners, func(a: Listener<T>, b: Listener<T>) : Bool {
+        Text.equal(a.0, b.0);
+      })){
+        case(?index){
+          Vec.put<Listener<T>>(listeners, index, listener);
+        };
+        case(null){
+          Vec.add<Listener<T>>(listeners, listener);
+        };
+      };
+    };
+
     /// Registers a listener for when a token is transferred.
     ///
     /// Parameters:
     ///      namespace: Text - The namespace identifying the listener.
     ///      remote_func: TokenTransferredListener - A callback function to be invoked on token transfer.
     public func register_token_transferred_listener(namespace: Text, remote_func : TokenTransferredListener){
-      switch(Vec.indexOf<(Text, TokenTransferredListener)>((namespace, remote_func), token_transferred_listeners, func(a: (Text, TokenTransferredListener), b: (Text, TokenTransferredListener)) : Bool{
-        Text.equal(a.0,b.0);
-      })){
-        case(?index){
-           Vec.put<(Text, TokenTransferredListener)>(token_transferred_listeners, index,  (namespace, remote_func));
-        };
-        case(null){
-          Vec.add<(Text, TokenTransferredListener)>(token_transferred_listeners, (namespace, remote_func));
-        };
-      };
+      register_listener<TokenTransferredListener>(namespace, remote_func, token_transferred_listeners);
     };
 
     /// Registers a listener for when a token is minted.
@@ -702,16 +715,7 @@ module {
     ///      namespace: Text - The namespace identifying the listener.
     ///      remote_func: TokenMintListener - A callback function to be invoked on token mint.
     public func register_token_mint_listener(namespace: Text, remote_func : TokenMintListener){
-      switch(Vec.indexOf<(Text, TokenMintListener)>((namespace, remote_func), token_mint_listeners, func(a: (Text, TokenMintListener), b: (Text, TokenMintListener)) : Bool{
-        Text.equal(a.0,b.0);
-      })){
-        case(?index){
-           Vec.put<(Text, TokenMintListener)>(token_mint_listeners, index,  (namespace, remote_func));
-        };
-        case(null){
-          Vec.add<(Text, TokenMintListener)>(token_mint_listeners, (namespace, remote_func));
-        };
-      };
+      register_listener<TokenMintListener>(namespace, remote_func, token_mint_listeners);
     };
 
     /// Registers a listener for when a token is burned.
@@ -720,16 +724,7 @@ module {
     ///      namespace: Text - The namespace identifying the listener.
     ///      remote_func: TokenBurnListener - A callback function to be invoked on token burn.
     public func register_token_burn_listener(namespace: Text, remote_func : TokenBurnListener){
-      switch(Vec.indexOf<(Text, TokenBurnListener)>((namespace, remote_func), token_burn_listeners, func(a: (Text, TokenBurnListener), b: (Text, TokenBurnListener)) : Bool{
-        Text.equal(a.0,b.0);
-      })){
-        case(?index){
-           Vec.put<(Text, TokenBurnListener)>(token_burn_listeners, index,  (namespace, remote_func));
-        };
-        case(null){
-          Vec.add<(Text, TokenBurnListener)>(token_burn_listeners, (namespace, remote_func));
-        };
-      };
+      register_listener<TokenBurnListener>(namespace, remote_func, token_burn_listeners);
     };
 
     //ledger mangement
@@ -904,11 +899,14 @@ module {
           result = #Ok(transaction_id);
         });
 
-         for(thisEvent in Vec.vals(token_burn_listeners)){
-          thisEvent.1(thisItem, ?current_owner, transaction_id);
+        for(thisEvent in Vec.vals(token_burn_listeners)){
+          thisEvent.1({
+              from = current_owner;
+              token_id = thisItem;
+              memo = request.memo;
+              created_at_time = request.created_at_time;
+          }, transaction_id);
         };
-
-
 
       };
       return #ok(#Ok(Vec.toArray(results)));
@@ -995,8 +993,9 @@ module {
         
         Vec.add(trx,("op", #Text("7mint")));
         let thisHash = RepIndy.hash_val(CandyConversion.CandySharedToValue(thisItem.metadata));
-
-        Vec.add(trx,("hash", #Blob(Blob.fromArray(thisHash))));
+        let hash = Blob.fromArray(thisHash);
+        Vec.add(trx,("hash", #Blob(hash)));
+        Vec.add(trx,("from", accountToValue({owner = caller; subaccount=null})));
 
         let transaction_id = switch(environment.ledger){
           case(null){
@@ -1033,7 +1032,15 @@ module {
         ignore index_owner(thisItem.token_id, new_owner);
 
         for(thisEvent in Vec.vals(token_mint_listeners)){
-          thisEvent.1(thisItem.token_id, ?{owner = caller; subaccount = null}, new_owner, transaction_id, bNew);
+          thisEvent.1({
+              token_id = thisItem.token_id;
+              memo = request.memo;
+              hash = hash;
+              from =  ?{owner = state.owner; subaccount = null};
+              to = new_owner;
+              created_at_time = request.created_at_time;
+              new_token = bNew;
+          },  transaction_id);
         };
 
       };
@@ -1132,7 +1139,8 @@ module {
                 Vec.add(trx,("op", #Text("7mint")));
                 let thisHash = RepIndy.hash_val(CandyConversion.CandySharedToValue(CandyTypes.shareCandy(newItem)));
 
-                Vec.add(trx,("hash", #Blob(Blob.fromArray(thisHash))));
+                let hash = Blob.fromArray(thisHash);
+                Vec.add(trx,("hash", #Blob(hash)));
 
                 let transaction_id = switch(environment.ledger){
                   case(null){
@@ -1164,7 +1172,15 @@ module {
                   
 
                 for(thisEvent in Vec.vals(token_mint_listeners)){
-                  thisEvent.1(thisItem.token_id, ?{owner = caller; subaccount = null}, new_owner, transaction_id, false);
+                  thisEvent.1({
+                      token_id = thisItem.token_id;
+                      memo = request.memo;
+                      hash = hash;
+                      from =  ?{owner = state.owner; subaccount = null};
+                      to = new_owner;
+                      created_at_time = request.created_at_time;
+                      new_token = false;
+                  }, transaction_id);
                 };
               };
               case(_) return #err("Only Class types supported by update");
@@ -1333,7 +1349,13 @@ module {
         cleanUpRecents();
 
         for(thisEvent in Vec.vals(token_transferred_listeners)){
-          thisEvent.1(token_id, ?{owner = caller; subaccount = transferArgs.subaccount}, transferArgs.to, transaction_id);
+          thisEvent.1({
+              token_id = token_id;
+              memo = transferArgs.memo;
+              from =  {owner = caller; subaccount = transferArgs.subaccount};
+              to = transferArgs.to;
+              created_at_time = transferArgs.created_at_time;
+          }, transaction_id);
         };
 
         return {token_id = token_id; transfer_result = #Ok(transaction_id)};

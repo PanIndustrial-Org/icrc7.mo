@@ -129,6 +129,14 @@ module {
     created_at_time : ?Nat64;
   };
 
+  public type TransferNotification = {
+    from : Account;
+    to : Account;
+    token_id : Nat;
+    memo : ?Blob;
+    created_at_time : ?Nat64;
+  };
+
   public type TransferBatchError = {
     #TooOld;
     #InvalidRecipient;
@@ -181,6 +189,16 @@ module {
     tokens : [SetNFTItemRequest];
   };
 
+  public type MintNotification = {
+    memo: ?Blob;
+    from: ?Account;
+    to: Account;
+    created_at_time : ?Nat64;
+    hash : Blob;
+    token_id : Nat;
+    new_token : Bool;
+  };
+
   public type SetNFTItemRequest = {
     token_id: Nat;
     metadata: NFTInput;
@@ -219,6 +237,13 @@ module {
     memo: ?Blob;
     created_at_time : ?Nat64;
     tokens : [Nat];
+  };
+
+  public type BurnNotification = {
+    memo: ?Blob;
+    from: Account;
+    created_at_time : ?Nat64;
+    token_id : Nat;
   };
 
   public type BurnNFTBatchResponse = {
@@ -336,9 +361,9 @@ module {
     };
   };
 
-  public type TokenTransferredListener = (token_id: Nat, from: ?Account, to: Account, trxid: Nat) -> ();
-  public type TokenBurnListener = (token_id: Nat, from: ?Account, trxid: Nat) -> ();
-  public type TokenMintListener = (token_id: Nat, from: ?Account, to: Account, trxid: Nat, new: Bool) -> ();
+  public type TokenTransferredListener = (TransferNotification, trxid: Nat) -> ();
+  public type TokenBurnListener = (BurnNotification, trxid: Nat) -> ();
+  public type TokenMintListener = (MintNotification, trxid: Nat) -> ();
 
   public type Indexes = {
     nft_to_owner : Map.Map<Nat, Account>;
