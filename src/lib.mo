@@ -55,6 +55,7 @@ module {
   public type NFT =                 MigrationTypes.Current.NFT;
   public type NFTShared =           MigrationTypes.Current.NFTShared;
   public type NFTMap =              MigrationTypes.Current.NFTMap;
+  public type NFTInput =            MigrationTypes.Current.NFTInput;
   public type Value =               MigrationTypes.Current.Value;
   public type Indexes =             MigrationTypes.Current.Indexes;
   public type Constants =             MigrationTypes.Current.Constants;
@@ -64,11 +65,13 @@ module {
   public type SetNFTItemResponse =       MigrationTypes.Current.SetNFTItemResponse;
   public type SetNFTBatchResponse =       MigrationTypes.Current.SetNFTBatchResponse;
   public type SetNFTResult =       MigrationTypes.Current.SetNFTResult;
+  public type MintNotification =    MigrationTypes.Current.MintNotification;
 
   public type BurnNFTRequest =       MigrationTypes.Current.BurnNFTRequest;
   public type BurnNFTItemResponse =       MigrationTypes.Current.BurnNFTItemResponse;
   public type BurnNFTBatchResponse =       MigrationTypes.Current.BurnNFTBatchResponse;
   public type BurnNFTResult =       MigrationTypes.Current.BurnNFTResult;
+  public type BurnNotification =    MigrationTypes.Current.BurnNotification;
 
   public type UpdateNFTRequest =       MigrationTypes.Current.UpdateNFTRequest;
   public type UpdateNFTItemResponse =       MigrationTypes.Current.UpdateNFTItemResponse;
@@ -90,6 +93,7 @@ module {
   public type TransferResponse =            MigrationTypes.Current.TransferResponse;
   public type TransferResponseItem =        MigrationTypes.Current.TransferResponseItem;
   public type TransferError =               MigrationTypes.Current.TransferArgs;
+  public type TransferNotification =    MigrationTypes.Current.TransferNotification;
   
 
 
@@ -375,6 +379,73 @@ module {
         owner = Principal.fromBlob(principal);
         subaccount = subaccount;
       });
+    };
+
+    private func get_owner_from_value(nftInput : NFTInput) : Result.Result<Account, Error>{
+      let nft = CandyTypes.unshare(nftInput);
+
+      switch(nft){
+        case(#Map(nft)){
+          let ?owner = Map.get(nft, Map.thash, state.constants.token_properties.owner_account) else return #ok({
+            owner = environment.canister();
+            subaccount = null;
+          });
+
+          debug if(debug_channel.get_token_owner) D.print("owner " # debug_show(owner));
+
+          let account = CandyConversion.candyToMap(owner);
+
+          debug if(debug_channel.get_token_owner) D.print("account " # debug_show(account));
+
+          let ?#Blob(principal) = Map.get(account, Map.thash, state.constants.token_properties.owner_principal) else return #err({
+            error_code = 4;
+            message = "owner malformed"
+          });
+
+          let subaccount : ?Blob = switch(Map.get(account, Map.thash, state.constants.token_properties.owner_subaccount)){
+            case(null) null;
+            case(?#Blob(val)) ?val;
+            case(_)return #err({
+              error_code = 5;
+              message = "subaccount malformed"
+            });
+          };
+          return #ok({owner = Principal.fromBlob(principal); subaccount = subaccount});
+        };
+        case(#Class(nft)){
+          let ?owner = Map.get(nft, Map.thash, state.constants.token_properties.owner_account) else return #ok({
+            owner = environment.canister();
+            subaccount = null;
+          });
+
+          debug if(debug_channel.get_token_owner) D.print("owner " # debug_show(owner));
+
+          let account = CandyConversion.candyToMap(owner.value);
+
+          debug if(debug_channel.get_token_owner) D.print("account " # debug_show(account));
+
+          let ?#Blob(principal) = Map.get(account, Map.thash, state.constants.token_properties.owner_principal) else return #err({
+            error_code = 4;
+            message = "owner malformed"
+          });
+
+          let subaccount : ?Blob = switch(Map.get(account, Map.thash, state.constants.token_properties.owner_subaccount)){
+            case(null) null;
+            case(?#Blob(val)) ?val;
+            case(_)return #err({
+              error_code = 5;
+              message = "subaccount malformed"
+            });
+          };
+          #ok({owner = Principal.fromBlob(principal); subaccount = subaccount});
+        };
+        case(_){
+          return #ok({
+            owner = environment.canister();
+            subaccount = null;
+          });
+        };
+      };
     };
 
     /// Retrieves the statistical data about the ledger and NFT collection.
@@ -880,14 +951,51 @@ module {
         
         Vec.add(trx,("op", #Text("7burn")));
 
-        let transaction_id = switch(environment.ledger){
+        let txMap = #Map(Vec.toArray(trx));
+        let txTopMap = #Map(Vec.toArray(trxtop));
+        let preNotification = {
+          from = current_owner;
+          token_id = thisItem;
+          memo = request.memo;
+          created_at_time = request.created_at_time;
+        };
+
+        let(finaltx, finaltxtop, notification) : (Value, ?Value, BurnNotification) = switch(environment.can_burn){
+          case(null){
+            (txMap, ?txTopMap, preNotification);
+          };
+          case(?remote_func){
+            switch(remote_func(txMap, ?txTopMap, preNotification)){
+              case(#ok(val)) val;
+              case(#err(tx)){
+                Vec.add(results, {
+                  token_id = thisItem;
+                  result = #Err(#GenericError({error_code = 3849; message = tx}));
+                });
+                continue proc;
+              };
+            };
+          };
+        };
+
+
+        let transaction_id = switch(environment.add_ledger_transaction){
           case(null){
             //use local ledger. This will not scale
-            Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
-            Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
+            let final = switch(insert_map(finaltxtop, "tx", finaltx)){
+              case(#ok(val)) val;
+              case(#err(err)){
+                Vec.add(results, {
+                  token_id = thisItem;
+                  result = #Err(#GenericError({error_code = 3849; message = err}));
+                });
+                continue proc;
+              };
+            };
+            Vec.add<Value>(state.ledger, final);
             Vec.size(state.ledger) - 1;
           };
-          case(?val) val.add_ledger_transaction(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
+          case(?val) val(finaltx, finaltxtop);
         };
 
         ignore Map.remove<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem);
@@ -900,16 +1008,26 @@ module {
         });
 
         for(thisEvent in Vec.vals(token_burn_listeners)){
-          thisEvent.1({
-              from = current_owner;
-              token_id = thisItem;
-              memo = request.memo;
-              created_at_time = request.created_at_time;
-          }, transaction_id);
+          thisEvent.1(notification, transaction_id);
         };
 
       };
       return #ok(#Ok(Vec.toArray(results)));
+    };
+
+    private func insert_map(top: ?Value, key: Text, val: Value): Result.Result<Value, Text> {
+      let foundTop = switch(top){
+        case(?val) val;
+        case(null) #Map([]);
+      };
+      switch(foundTop){
+        case(#Map(a_map)){
+          let vecMap = Vec.fromArray<(Text, Value)>(a_map);
+          Vec.add<(Text, Value)>(vecMap, (key, val));
+          return #ok(#Map(Vec.toArray(vecMap)));
+        };
+        case(_) return #err("bad map");
+      };
     };
 
     /// Hard sets (replaces) the metadata for an NFT, potentially creating a new token if it does not already exist.
@@ -997,14 +1115,55 @@ module {
         Vec.add(trx,("hash", #Blob(hash)));
         Vec.add(trx,("from", accountToValue({owner = caller; subaccount=null})));
 
-        let transaction_id = switch(environment.ledger){
+        let expected_owner = switch(get_owner_from_value(thisItem.metadata)){
+          case(#ok(val)) val;
+          case(#err(err)){
+            Vec.add(results, {
+                token_id = thisItem.token_id;
+                result = #Err(#GenericError({error_code= 6453; message="bad owner" # err.message;}));
+              });
+            continue proc;
+          };
+        };
+
+        let txMap = #Map(Vec.toArray(trx));
+        let txTopMap = #Map(Vec.toArray(trxtop));
+        let preNotification = {
+            token_id = thisItem.token_id;
+            memo = request.memo;
+            hash = hash;
+            from =  ?{owner = state.owner; subaccount = null};
+            to = expected_owner;
+            created_at_time = request.created_at_time;
+            new_token = bNew;
+        };
+
+        let(finaltx, finaltxtop, notification) : (Value, ?Value, MintNotification) = switch(environment.can_mint){
+          case(null){
+            (txMap, ?txTopMap, preNotification);
+          };
+          case(?remote_func){
+            switch(remote_func(txMap, ?txTopMap, preNotification)){
+              case(#ok(val)) val;
+              case(#err(tx)){
+                Vec.add(results, {
+                  token_id = thisItem.token_id;
+                  result = #Err(#GenericError({error_code= 6453; message=tx}));
+                });
+                continue proc;
+              };
+            };
+          };
+        };
+
+        let transaction_id = switch(environment.add_ledger_transaction){
           case(null){
             //use local ledger. This will not scale
             Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
             Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
             Vec.size(state.ledger) - 1;
           };
-          case(?val) val.add_ledger_transaction(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
+          case(?val) val(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
         };
 
         
@@ -1032,15 +1191,7 @@ module {
         ignore index_owner(thisItem.token_id, new_owner);
 
         for(thisEvent in Vec.vals(token_mint_listeners)){
-          thisEvent.1({
-              token_id = thisItem.token_id;
-              memo = request.memo;
-              hash = hash;
-              from =  ?{owner = state.owner; subaccount = null};
-              to = new_owner;
-              created_at_time = request.created_at_time;
-              new_token = bNew;
-          },  transaction_id);
+          thisEvent.1(notification,  transaction_id);
         };
 
       };
@@ -1142,14 +1293,56 @@ module {
                 let hash = Blob.fromArray(thisHash);
                 Vec.add(trx,("hash", #Blob(hash)));
 
-                let transaction_id = switch(environment.ledger){
+                let expected_owner = switch(get_owner_from_value(CandyTypes.shareCandy(newItem))){
+                
+                  case(#ok(val)) val;
+                  case(#err(err)){
+                    Vec.add(results, {
+                        token_id = thisItem.token_id;
+                        result = #Err(#GenericError({error_code= 6453; message="bad owner" # err.message;}));
+                      });
+                    continue proc;
+                  };
+                };
+
+                let txMap = #Map(Vec.toArray(trx));
+                let txTopMap = #Map(Vec.toArray(trxtop));
+                let preNotification = {
+                      token_id = thisItem.token_id;
+                      memo = request.memo;
+                      hash = hash;
+                      from =  ?{owner = state.owner; subaccount = null};
+                      to = expected_owner;
+                      created_at_time = request.created_at_time;
+                      new_token = false;
+                  };
+
+                let(finaltx, finaltxtop, notification) : (Value, ?Value, MintNotification) = switch(environment.can_mint){
+                  case(null){
+                    (txMap, ?txTopMap, preNotification);
+                  };
+                  case(?remote_func){
+                    switch(remote_func(txMap, ?txTopMap, preNotification)){
+                      case(#ok(val)) val;
+                      case(#err(tx)){
+                        Vec.add(results, {
+                          token_id = thisItem.token_id;
+                          result = #Err(#GenericError({error_code= 6453; message=tx}));
+                        });
+                        continue proc;
+                      };
+                    };
+                  };
+                };
+
+                let transaction_id = switch(environment.add_ledger_transaction){
                   case(null){
                     //use local ledger. This will not scale
                     Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
                     Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
                     Vec.size(state.ledger) - 1;
                   };
-                  case(?val) val.add_ledger_transaction(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
+                  case(?val) val(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
                 };
 
                 ignore Map.put<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem.token_id, newItem);
@@ -1172,15 +1365,7 @@ module {
                   
 
                 for(thisEvent in Vec.vals(token_mint_listeners)){
-                  thisEvent.1({
-                      token_id = thisItem.token_id;
-                      memo = request.memo;
-                      hash = hash;
-                      from =  ?{owner = state.owner; subaccount = null};
-                      to = new_owner;
-                      created_at_time = request.created_at_time;
-                      new_token = false;
-                  }, transaction_id);
+                  thisEvent.1(notification, transaction_id);
                 };
               };
               case(_) return #err("Only Class types supported by update");
@@ -1330,18 +1515,43 @@ module {
           case(#err(err)){return { token_id = token_id; transfer_result = #Err(#GenericError(err))}};
         };
 
-        
+        let txMap = #Map(Vec.toArray(trx));
+        let txTopMap = #Map(Vec.toArray(trxtop));
+        let preNotification = {
+            token_id = token_id;
+            memo = transferArgs.memo;
+            from =  {owner = caller; subaccount = transferArgs.subaccount};
+            to = transferArgs.to;
+            created_at_time = transferArgs.created_at_time;
+        };
+
+        let(finaltx, finaltxtop, notification) : (Value, ?Value, TransferNotification) = switch(environment.can_transfer){
+          case(null){
+            (txMap, ?txTopMap, preNotification);
+          };
+          case(?remote_func){
+            switch(remote_func(txMap, ?txTopMap, preNotification)){
+              case(#ok(val)) val;
+              case(#err(tx)){
+                return {
+                  token_id = token_id;
+                  transfer_result = #Err(#GenericError({error_code= 6453; message=tx}));
+                };
+              };
+            };
+          };
+        };
         
         debug if(debug_channel.transfer) D.print("getting trx id");
         //implment ledger;
-        let transaction_id = switch(environment.ledger){
+        let transaction_id = switch(environment.add_ledger_transaction){
           case(null){
             //use local ledger. This will not scale
             Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
             Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
             Vec.size(state.ledger) - 1;
           };
-          case(?val) val.add_ledger_transaction(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
+          case(?val) val(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
         };
 
         ignore Map.put<Blob, (Int,Nat)>(state.indexes.recent_transactions, Map.bhash, trxhash, (environment.get_time(), transaction_id));
@@ -1349,13 +1559,7 @@ module {
         cleanUpRecents();
 
         for(thisEvent in Vec.vals(token_transferred_listeners)){
-          thisEvent.1({
-              token_id = token_id;
-              memo = transferArgs.memo;
-              from =  {owner = caller; subaccount = transferArgs.subaccount};
-              to = transferArgs.to;
-              created_at_time = transferArgs.created_at_time;
-          }, transaction_id);
+          thisEvent.1(notification, transaction_id);
         };
 
         return {token_id = token_id; transfer_result = #Ok(transaction_id)};

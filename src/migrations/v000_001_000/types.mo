@@ -15,6 +15,7 @@ import Principal "mo:base/Principal";
 import Blob "mo:base/Blob";
 import D "mo:base/Debug";
 import Order "mo:base/Order";
+import Result "mo:base/Result";
 import Text "mo:base/Text";
 
 module {
@@ -218,6 +219,7 @@ module {
   public type SetNFTResult =  {
     #Ok: Nat;
     #Err: SetNFTError;
+    #GenericError : { error_code : Nat; message : Text };
   };
 
   public type SetNFTError = {
@@ -356,9 +358,10 @@ module {
     canister : () -> Principal;
     get_time : () -> Int;
     refresh_state: () -> State;
-    ledger: ?{
-      add_ledger_transaction: ((trx: Transaction, trxtop: ?Transaction) -> Nat);
-    };
+    add_ledger_transaction: ?((trx: Transaction, trxtop: ?Transaction) -> Nat);
+    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification), Text>);
+    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notificication: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: MintNotification), Text>);
+    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification), Text>);
   };
 
   public type TokenTransferredListener = (TransferNotification, trxid: Nat) -> ();

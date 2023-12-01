@@ -93,7 +93,10 @@ let base_environment= {
   get_time = get_time;
   refresh_state = get_icrc7_state;
   log = null;
-  ledger = null;
+  add_ledger_transaction = null;
+  can_mint = null;
+  can_burn = null;
+  can_transfer = null;
 };
 
 test("symbol can be initialized and updated", func() {

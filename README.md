@@ -142,9 +142,32 @@ The class has a register_token_transferred_listener, register_token_mint_listene
 This functionality is used by the ICRC30.mo component to clear approvals whenever a token changes hands or is burned.
 
 ```
-public type TokenTransferredListener = (token_id: Nat, from: ?Account, to: Account, trxid: Nat) -> ();
+  public type MintNotification = {
+    memo: ?Blob;
+    from: ?Account;
+    to: Account;
+    created_at_time : ?Nat64;
+    hash : Blob;
+    token_id : Nat;
+    new_token : Bool; //true if this item has been minted before
+  };
 
-public type TokenBurnListener = (token_id: Nat, from: ?Account, trxid: Nat) -> ();
+  public type BurnNFTRequest = {
+    memo: ?Blob;
+    created_at_time : ?Nat64;
+    tokens : [Nat];
+  };
 
-public type TokenMintListener = (token_id: Nat, from: ?Account, to: Account, trxid: Nat, new: Bool) -> ();
-  ```
+  public type TransferNotification = {
+    from : Account;
+    to : Account;
+    token_id : Nat;
+    memo : ?Blob;
+    created_at_time : ?Nat64;
+  };
+
+  public type TokenTransferredListener = (TransferNotification, trxid: Nat) -> ();
+  public type TokenBurnListener = (BurnNotification, trxid: Nat) -> ();
+  public type TokenMintListener = (MintNotification, trxid: Nat) -> ();
+
+```
