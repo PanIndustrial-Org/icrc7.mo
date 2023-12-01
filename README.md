@@ -44,9 +44,10 @@ stable var icrc7_migration_state = ICRC7.init(ICRC7.initialState() , #v0_1_0(#id
       canister = get_canister;
       get_time = get_time;
       refresh_state = get_icrc7_state;
-      ledger = ?{
-        add_ledger_transaction = add_trx;
-      };
+      add_ledger_transaction = add_trx;
+      can_transfer = null;
+      can_mint = null;
+      can_burn = null;
     };
   };
 
@@ -72,7 +73,10 @@ The environment pattern lets you pass dynamic information about your environment
 - get_canister - A function to retrieve the canister this class is running on
 - get_time - A function to retrieve the current time to make testing easier
 - refresh_state - A function to call to refresh the state of your class. useful in async environments where state may change after an await - provided for future compatibility.
-- ledger - used to provide compatibility with ICRC3 based transaction logs. When used in conjucntion with ICRC3.mo you will get an ICRC3 compatible transaction log complete with self archiving.
+- add_ledger_transaction - used to provide compatibility with ICRC3 based transaction logs. When used in conjunction with ICRC3.mo you will get an ICRC3 compatible transaction log complete with self archiving.
+- can_transfer - override functions to access and manipulate a transfer transaction just before it is committed.
+- can_mint - override functions to access and manipulate a mint transaction just before it is committed.
+- can_burn - override functions to access and manipulate a burn transaction just before it is committed.
 
 ### Input Init Args
 
@@ -137,9 +141,13 @@ The class uses a Representational Independent Hash map to keep track of duplicat
 
 ## Event system
 
+### Subscriptions
+
 The class has a register_token_transferred_listener, register_token_mint_listener, and register_token_burn_listener endpoints that allows other objects to register an event listener and be notified whenever a token event occurs from one user to another.
 
 This functionality is used by the ICRC30.mo component to clear approvals whenever a token changes hands or is burned.
+
+The events are synchronous and cannot directly make calls to other canisters.  We suggest using them to set timers if notifications need to be sent using the Timers API.
 
 ```
   public type MintNotification = {
@@ -169,5 +177,20 @@ This functionality is used by the ICRC30.mo component to clear approvals wheneve
   public type TokenTransferredListener = (TransferNotification, trxid: Nat) -> ();
   public type TokenBurnListener = (BurnNotification, trxid: Nat) -> ();
   public type TokenMintListener = (MintNotification, trxid: Nat) -> ();
+
+```
+
+### Overrides
+
+The user may assign a function to intercept each transaction type just before it is committed to the transaction log.  These functions are optional. The user may manipulate the values and return them to the processing transaction and the new values will be used for the transaction block information and for notifying subscribed components.
+
+By returning an #err from these functions you will effectively cancel the transaction and the caller will receive back a #GenericError for that request with the message you provide.
+
+Wire these functions up by including them in your environment object.
+
+```
+    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification), Text>);
+    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notificication: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: MintNotification), Text>);
+    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification), Text>);
 
 ```
