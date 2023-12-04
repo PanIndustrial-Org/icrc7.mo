@@ -1,0 +1,1 @@
+Because a fully functioning example needs ICRC7, 30, and 3, no example is provided in this repository due to the potential creation of recursive references. Please see the https://github.com/PanIndustrial-org/icrc_nft.mo for an implementation example.

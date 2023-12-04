@@ -1,13 +1,4 @@
 {
-    "canisters": {
- 
-        "icrc7": {
-            "main": "example/main.mo",
-            "type": "motoko",
-            "gzip": true
-        }
-        
-    },
     "defaults": {
         "build": {
             "args": "",
