@@ -247,6 +247,7 @@ module {
   public type BurnNotification = {
     memo: ?Blob;
     from: Account;
+    to: ?Account;
     created_at_time : ?Nat64;
     token_id : Nat;
   };
