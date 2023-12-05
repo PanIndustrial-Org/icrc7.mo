@@ -106,6 +106,8 @@ Why use ICRC16 as the input? ICRC16 provides the #Class type which allows an imm
 
 Since ICRC16 is a superset of Value, feel free to ignore this functionality and just use the Value Variant options and everything will work as intended.
 
+When logging transactions, this library currently logs only the Representational Independent Hash blob of the metadata in the transaction log.  Implementation providers should take care to store the data in a way that overcomes the data availability problem so that the internal state can be verified via the transaction log.  The ICRC working groups intent to tackle this problem in the near future.
+
 ### Ownership
 
 Ownership is maintained inside the metadata of the NFT in the top level property icrc7:owner_account.  If pushing in data you would format this:
