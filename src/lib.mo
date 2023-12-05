@@ -950,6 +950,7 @@ module {
         Vec.add(trxtop,("ts", #Nat(Int.abs(environment.get_time()))));
 
         Vec.add(trxtop,("from", accountToValue(current_owner)));
+        ignore unindex_owner(thisItem, current_owner);
 
         let to = switch(state.ledger_info.burn_account){
           case(null){null};
@@ -1007,8 +1008,13 @@ module {
           case(?val) val(finaltx, finaltxtop);
         };
 
+
         switch(state.ledger_info.burn_account){
-          case(null) ignore Map.remove<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem);
+          case(null){
+            //remove it from indexes
+            ignore Map.remove<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem);
+            ignore Map.remove<Nat, Account>(state.indexes.nft_to_owner, Map.nhash, thisItem);
+          };
           case(?val){
             let ?thisTo = to else D.trap("unreachable state was reached for burn. nullable account is null.");
             switch(update_token_owner(thisItem, ?current_owner, thisTo)){
@@ -1331,7 +1337,7 @@ module {
                 let thisHash = RepIndy.hash_val(CandyConversion.CandySharedToValue(CandyTypes.shareCandy(newItem)));
 
                 let hash = Blob.fromArray(thisHash);
-                Vec.add(trx,("hash", #Blob(hash)));
+                Vec.add(trx,("meta", #Blob(hash)));
 
                 let expected_owner = switch(get_owner_from_value(CandyTypes.shareCandy(newItem))){
                 
