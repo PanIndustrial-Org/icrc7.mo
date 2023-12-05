@@ -94,6 +94,7 @@ module {
     var max_memo_size : Nat;
     var permitted_drift : Nat;
     var allow_transfers : Bool;
+    var burn_account : ?Account
   };
 
   public type LedgerInfoShared =  {
@@ -109,6 +110,7 @@ module {
     max_memo_size : Nat;
     permitted_drift: Nat;
     allow_transfers: Bool;
+    burn_account: ?Account
   };
 
   public type NFT = CandyTypes.Candy;
@@ -182,6 +184,7 @@ module {
     #PermittedDrift : Nat;
     #AllowTransfers : Bool;
     #UpdateOwner : Principal;
+    #BurnAccount : ?Account
   };
 
   public type SetNFTRequest = {

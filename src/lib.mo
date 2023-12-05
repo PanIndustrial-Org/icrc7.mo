@@ -467,6 +467,7 @@ module {
         max_memo_size = state.ledger_info.max_memo_size;
         permitted_drift = state.ledger_info.permitted_drift;
         allow_transfers = state.ledger_info.allow_transfers;
+        burn_account = state.ledger_info.burn_account;
       };
       nft_count = Map.size(state.nfts);
       //the reason this is not a Map of a Map is so that we can preserve the queness of this Map and retire the oldest approvals if the map gets too large.
@@ -826,6 +827,7 @@ module {
           case(#PermittedDrift(val)){state.ledger_info.permitted_drift := val};
           case(#AllowTransfers(val)){state.ledger_info.allow_transfers := val};
           case(#UpdateOwner(val)){state.owner := val};
+          case(#BurnAccount(val)){state.ledger_info.burn_account := val};
         };
         Vec.add(results, true);
       };
@@ -948,6 +950,14 @@ module {
         Vec.add(trxtop,("ts", #Nat(Int.abs(environment.get_time()))));
 
         Vec.add(trxtop,("from", accountToValue(current_owner)));
+
+        let to = switch(state.ledger_info.burn_account){
+          case(null){null};
+          case(?val){
+            Vec.add(trxtop,("to", accountToValue(val)));
+            ?val;
+          };
+        };
         
         Vec.add(trx,("op", #Text("7burn")));
 
@@ -955,6 +965,7 @@ module {
         let txTopMap = #Map(Vec.toArray(trxtop));
         let preNotification = {
           from = current_owner;
+          to = to;
           token_id = thisItem;
           memo = request.memo;
           created_at_time = request.created_at_time;
@@ -982,7 +993,7 @@ module {
         let transaction_id = switch(environment.add_ledger_transaction){
           case(null){
             //use local ledger. This will not scale
-            let final = switch(insert_map(finaltxtop, "tx", finaltx)){
+            switch(add_local_ledger(finaltxtop, finaltx)){
               case(#ok(val)) val;
               case(#err(err)){
                 Vec.add(results, {
@@ -992,16 +1003,25 @@ module {
                 continue proc;
               };
             };
-            Vec.add<Value>(state.ledger, final);
-            Vec.size(state.ledger) - 1;
           };
           case(?val) val(finaltx, finaltxtop);
         };
 
-        ignore Map.remove<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem);
-
-
-
+        switch(state.ledger_info.burn_account){
+          case(null) ignore Map.remove<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem);
+          case(?val){
+            let ?thisTo = to else D.trap("unreachable state was reached for burn. nullable account is null.");
+            switch(update_token_owner(thisItem, ?current_owner, thisTo)){
+              case(#ok(updated_nft)){};
+              case(#err(err)){ 
+                //if this occures the transaction cannot be recorded and the ledger will be out of sync with ownership,
+                //so we must trap the entire state change. But this condition should be unreachable
+                D.trap("unreachable state was reached for burn. Could not update owner to the burn account.");
+              };
+            };
+          };
+        };
+        
         Vec.add(results, {
           token_id = thisItem;
           result = #Ok(transaction_id);
@@ -1028,6 +1048,18 @@ module {
         };
         case(_) return #err("bad map");
       };
+    };
+
+    public func add_local_ledger(finaltxtop : ?Value, finaltx: Value) : Result.Result<Nat,Text> {
+      //use local ledger. This will not scale
+      let final = switch(insert_map(finaltxtop, "tx", finaltx)){
+        case(#ok(val)) val;
+        case(#err(err)){
+          return #err(err);
+        };
+      };
+      Vec.add<Value>(state.ledger, final);
+      return #ok(Vec.size(state.ledger) - 1);
     };
 
     /// Hard sets (replaces) the metadata for an NFT, potentially creating a new token if it does not already exist.
@@ -1112,7 +1144,7 @@ module {
         Vec.add(trx,("op", #Text("7mint")));
         let thisHash = RepIndy.hash_val(CandyConversion.CandySharedToValue(thisItem.metadata));
         let hash = Blob.fromArray(thisHash);
-        Vec.add(trx,("hash", #Blob(hash)));
+        Vec.add(trx,("meta", #Blob(hash)));
         Vec.add(trx,("from", accountToValue({owner = caller; subaccount=null})));
 
         let expected_owner = switch(get_owner_from_value(thisItem.metadata)){
@@ -1125,6 +1157,8 @@ module {
             continue proc;
           };
         };
+
+        Vec.add(trx,("to", accountToValue(expected_owner)));
 
         let txMap = #Map(Vec.toArray(trx));
         let txTopMap = #Map(Vec.toArray(trxtop));
@@ -1158,10 +1192,16 @@ module {
 
         let transaction_id = switch(environment.add_ledger_transaction){
           case(null){
-            //use local ledger. This will not scale
-            Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
-            Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
-            Vec.size(state.ledger) - 1;
+            switch(add_local_ledger(finaltxtop, finaltx)){
+              case(#ok(val)) val;
+              case(#err(err)){
+                Vec.add(results, {
+                  token_id = thisItem.token_id;
+                  result = #Err(#GenericError({error_code = 3849; message = err}));
+                });
+                continue proc;
+              };
+            };
           };
           case(?val) val(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
         };
@@ -1337,10 +1377,17 @@ module {
 
                 let transaction_id = switch(environment.add_ledger_transaction){
                   case(null){
-                    //use local ledger. This will not scale
-                    Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
-                    Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
-                    Vec.size(state.ledger) - 1;
+
+                    switch(add_local_ledger(finaltxtop, finaltx)){
+                    case(#ok(val)) val;
+                    case(#err(err)){
+                      Vec.add(results, {
+                        token_id = thisItem.token_id;
+                        result = #Err(#GenericError({error_code = 3849; message = err}));
+                      });
+                      continue proc;
+                    };
+                  };
                   };
                   case(?val) val(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
                 };
@@ -1546,10 +1593,16 @@ module {
         //implment ledger;
         let transaction_id = switch(environment.add_ledger_transaction){
           case(null){
-            //use local ledger. This will not scale
-            Vec.add(trxtop, ("tx", #Map(Vec.toArray(trx))));
-            Vec.add(state.ledger, #Map(Vec.toArray(trxtop)));
-            Vec.size(state.ledger) - 1;
+
+            switch(add_local_ledger(finaltxtop, finaltx)){
+              case(#ok(val)) val;
+              case(#err(err)){
+                return {
+                  token_id = token_id;
+                  transfer_result = #Err(#GenericError({error_code = 3849; message = err}));
+                };
+              };
+            };
           };
           case(?val) val(#Map(Vec.toArray(trx)), ?#Map(Vec.toArray(trxtop)));
         };

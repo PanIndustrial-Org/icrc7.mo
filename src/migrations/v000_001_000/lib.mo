@@ -51,6 +51,10 @@ module {
             case(null) v0_1_0.default_allow_transfers;
             case(?val) val;
           };
+          burn_account = switch(val.burn_account){
+            case(null) null;
+            case(?val) ?val;
+          };
         };
       };
       case(_) {
@@ -68,6 +72,7 @@ module {
           max_memo_size = v0_1_0.default_max_take_value;
           permitted_drift = v0_1_0.default_permitted_drift;
           allow_transfers = v0_1_0.default_allow_transfers;
+          burn_account = null;
           deployer = owner;
         };
       };
@@ -88,6 +93,7 @@ module {
         var max_memo_size = ledger_info.max_memo_size;
         var permitted_drift = ledger_info.permitted_drift;
         var allow_transfers = ledger_info.allow_transfers;
+        var burn_account = ledger_info.burn_account
       };
 
       var owner = owner;
