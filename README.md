@@ -92,6 +92,7 @@ The environment pattern lets you pass dynamic information about your environment
   - max_memo_size - max size in bytes for a memo. defaults to 384.
   - permitted_drift - time in nanoseconds that a transaction can be created in the future or past. used for deduplication - Defaults to 2 Minutes (120000000000)
   - allow_transfers - whether this canister allows transfers. defaults to true.
+  - burn_account - set to null to delete burned nft or an opt account to have the NFTs transferred to a black hole.
   - deployer - the principal deploying, will be the owner of the collection;
 
 ## Metadata and Ownership
