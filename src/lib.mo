@@ -121,7 +121,7 @@ module {
     icrc7_max_take_value : shared query () -> async ?Nat;
     icrc7_max_memo_size : shared query () -> async ?Nat;
     icrc7_collection_metadata : shared query () -> async [(Text, Value)];
-    icrc7_token_metadata : shared query ([Nat]) -> async [(Nat, [(Text, Value)])];
+    icrc7_token_metadata : shared query ([Nat]) -> async [(Nat, ?[(Text, Value)])];
     icrc7_owner_of : shared query ([Nat]) -> async [(Nat, ?Account)];
     icrc7_balance_of : shared query (Account) -> async Nat;
     icrc7_tokens : shared query (prev : ?Nat, take : ?Nat) -> async [Nat];
