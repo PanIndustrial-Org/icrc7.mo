@@ -202,7 +202,6 @@ module {
 
     /// Returns all the collection-level metadata of the NFT collection in a single query.
     public func collection_metadata() : Service.CollectionMetadataResponse {
-      let ledger_info = get_ledger_info();
       let results = Vec.new<(Text, Value)>();
 
       Vec.add(results, ("icrc7:symbol", #Text(symbol())));
@@ -304,9 +303,7 @@ module {
 
     /// Returns the list of standards this ledger implements.
     public func supported_standards() : Service.SupportedStandardsResponse {
-      let standards = Vec.new<{ name : Text; url : Text }>();
-      Vec.add(standards, { name = "icrc7"; url = "https://github.com/dfinity/ICRC/ICRCs/ICRC-7" });
-      Vec.toArray(standards);
+      get_state().supported_standards;
     };
 
     /// Returns the collection level ledger information.
@@ -622,6 +619,7 @@ module {
         //the reason this is not a Map of a Map is so that we can preserve the queness of this Map and retire the oldest approvals if the map gets too large.
         ledger_count = Vec.size(state.ledger);
         owner = state.owner;
+        supported_standards = state.supported_standards;
         indexes = {
           nft_to_owner_count = Map.size(state.indexes.owner_to_nfts);
           owner_to_nfts_count = Map.size(state.indexes.owner_to_nfts);

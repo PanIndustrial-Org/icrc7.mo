@@ -23,6 +23,7 @@ module {
     allow_transfers: ?Bool;
     permitted_drift : ?Nat;
     burn_account : ?v0_1_0.Account;
+    supported_standards : ?v0_1_0.SupportedStandards;
   };
 
   public type State = {
