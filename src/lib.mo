@@ -255,6 +255,9 @@ module {
     };
 
     /// Returns the token metadata for token_ids, a list of token ids. Each tuple in the response vector comprises a token id as first element and the metadata corresponding to this token expressed as an optional record comprising text and Value pairs expressing the token metadata as second element. In case a token does not exist, its associated metadata vector is null. If a token does not have metadata, its associated metadata vector is the empty vector.
+    ///
+    /// WARNING: This method will trap if the argument exceeds `max_query_batch_size`.
+    /// Use `get_token_infos_shared` if you want control over this behavior instead.
     public func token_metadata(token_ids : [Nat]) : Service.TokenMetadataResponse {
       switch (get_token_infos_shared(token_ids)) {
         case (#ok(val)) val;
@@ -263,6 +266,9 @@ module {
     };
 
     /// Returns the owner Account of each token in a list token_ids of token ids. The response elements are sorted following an ordering depending on the ledger implementation.
+    ///
+    /// WARNING: This method will trap if the argument exceeds `max_query_batch_size`.
+    /// Use `get_token_owners` if you want control over this behavior instead.
     public func owner_of(token_ids : [Nat]) : Service.OwnerOfResponse {
       switch (get_token_owners(token_ids)) {
         case (#ok(val)) val;
@@ -286,6 +292,9 @@ module {
     };
 
     /// Transfers one or more tokens from the account defined by the caller principal and subaccount to the to account. The transfer can only be initiated by the holder of the tokens.
+    ///
+    /// WARNING: This method will trap if the argument exceeds `max_update_batch_size` and for numerous other reasons (see `transfer_tokens` implementation for details).
+    /// Use `transfer_tokens` if you want control over this behavior instead.
     public func transfer(caller : Principal, args : Service.TransferArgs) : Service.TransferResponse {
       switch (transfer_tokens(caller, args)) {
         case (#ok(val)) val;
