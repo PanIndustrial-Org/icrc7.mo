@@ -363,9 +363,9 @@ module {
     get_time : () -> Int;
     refresh_state: () -> State;
     add_ledger_transaction: ?((trx: Transaction, trxtop: ?Transaction) -> Nat);
-    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification), Text>);
-    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notificication: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: MintNotification), Text>);
-    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification), Text>);
+    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notification: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: TransferNotification), Text>);
+    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notification: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: MintNotification), Text>);
+    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notification: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: BurnNotification), Text>);
   };
 
   public type TokenTransferredListener = (TransferNotification, trxid: Nat) -> ();
