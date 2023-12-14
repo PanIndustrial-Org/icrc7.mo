@@ -13,10 +13,12 @@ import Vec "mo:vector";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
 import Blob "mo:base/Blob";
+import Option "mo:base/Option";
 import RepIndy "mo:rep-indy-hash";
 
 import CandyConversion "mo:candy_0_3_0/conversion";
 import CandyProperties "mo:candy_0_3_0/properties";
+import Service "service";
 
 module {
 
@@ -114,28 +116,7 @@ module {
   public let token_property_owner_principal = MigrationTypes.Current.token_property_owner_principal;
   public let token_property_owner_subaccount = MigrationTypes.Current.token_property_owner_subaccount;
 
-  public type Service = actor {
-
-    icrc7_name: shared query ()-> async Text;
-    icrc7_symbol: shared query ()-> async Text;
-    icrc7_description: shared query ()-> async ?Text;
-    icrc7_logo: shared query ()-> async ?Text;
-    icrc7_total_supply: shared query ()-> async Nat;
-    icrc7_supply_cap: shared query ()-> async ?Nat;
-    icrc7_max_query_batch_size: shared query ()-> async ?Nat;
-    icrc7_max_update_batch_size: shared query ()-> async ?Nat;
-    icrc7_default_take_value: shared query ()-> async ?Nat;
-    icrc7_max_take_value:  shared query ()-> async ?Nat;
-    icrc7_max_memo_size:  shared query ()-> async ?Nat;
-    icrc7_collection_metadata: shared query ()-> async [(Text, Value)];
-    icrc7_token_metadata : shared query ([Nat]) -> async [(Nat, ?[(Text, Value)])];
-    icrc7_owner_of: shared query ([Nat])-> async [{token_id: Nat; account:Account}];
-    icrc7_balance_of: shared query (Account)-> async Nat;
-    icrc7_tokens: shared query (prev: ?Nat, take: ?Nat)-> async [Nat];
-    icrc7_tokens_of: shared query (Account, prev : ?Nat, take: ?Nat)-> async [Nat];
-    icrc7_transfer: shared (TransferArgs)-> async TransferResponse;
-    icrc7_supported_standards: shared query ()-> async SupportedStandards;
-  };
+  public type Service = Service.Service;
 
   /// #class ICRC7
   ///
@@ -166,6 +147,167 @@ module {
 
     public let migrate = Migration.migrate;
 
+    /// Returns the name of the NFT collection (e.g., My Super NFT).
+    public func name() : Text {
+      switch (get_ledger_info().name) {
+        case (?val) val;
+        case (null) "";
+      };
+    };
+
+    /// Returns the token symbol of the NFT collection (e.g., MS).
+    public func symbol() : Text {
+      switch (get_ledger_info().symbol) {
+        case (?val) val;
+        case (null) "";
+      };
+    };
+
+    /// Returns the text description of the collection.
+    public func description() : ?Text {
+        get_ledger_info().description;
+    };
+
+    /// Returns a link to the logo of the collection. It may be a [DataURL](https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URLs) that contains the logo image itself.
+    public func logo() : ?Text {
+      get_ledger_info().logo;
+    };
+
+    /// Returns the total number of NFTs on all accounts.
+    public func total_supply() : Nat {
+      get_stats().nft_count;
+    };
+
+   /// Returns the maximum number of NFTs possible for this collection. Any attempt to mint more NFTs than this supply cap shall be rejected.
+    public func supply_cap() : ?Nat {
+      return get_ledger_info().supply_cap;
+    };
+
+   /// Returns the maximum batch size for batch query calls this ledger implementation supports.
+    public func max_query_batch_size () : ?Nat {
+      ?get_ledger_info().max_query_batch_size;
+    };
+
+    /// Returns the maximum number of token ids allowed for being used as input in a batch update method.
+    public func max_update_batch_size () : ?Nat {
+      ?get_ledger_info().max_update_batch_size;
+    };
+
+    /// Returns the default parameter the ledger uses for take in case the parameter is null in paginated queries.
+    public func default_take_value () : ?Nat {
+      ?get_ledger_info().default_take_value;
+    };
+
+    /// Returns the maximum take value for paginated query calls this ledger implementation supports. The value applies to all paginated calls the ledger exposes.
+    public func max_take_value () : ?Nat {
+      ?get_ledger_info().max_take_value;
+    };
+
+    /// Returns the maximum size of memos as supported by an implementation.
+    public func max_memo_size () : ?Nat {
+      ?get_ledger_info().max_memo_size;
+    };
+
+    /// Returns all the collection-level metadata of the NFT collection in a single query.
+    public func collection_metadata() : Service.CollectionMetadataResponse {
+      let ledger_info = get_ledger_info();
+      let results = Vec.new<(Text, Value)>();
+
+      Vec.add(results, ("icrc7:symbol", #Text(symbol())));
+
+      Vec.add(results, ("icrc7:name", #Text(name())));
+
+      switch (description()) {
+        case (?val) Vec.add(results, ("icrc7:description", #Text(val)));
+        case (null) {};
+      };
+
+      switch (logo()) {
+        case (?val) Vec.add(results, ("icrc7:logo", #Text(val)));
+        case (null) {};
+      };
+
+      Vec.add(results, ("icrc7:total_supply", #Nat(total_supply())));
+
+      switch (supply_cap()) {
+        case (?val) Vec.add(results, ("icrc7:supply_cap", #Nat(val)));
+        case (null) {};
+      };
+
+      switch (max_query_batch_size()) {
+        case (?val) Vec.add(results, ("icrc7:max_query_batch_size", #Nat(val)));
+        case (null) {};
+      };
+
+      switch (max_update_batch_size()) {
+        case (?val) Vec.add(results, ("icrc7:max_update_batch_size", #Nat(val)));
+        case (null) {};
+      };
+
+      switch (default_take_value()) {
+        case (?val) Vec.add(results, ("icrc7:default_take_value", #Nat(val)));
+        case (null) {};
+      };
+
+      switch (max_take_value()) {
+        case (?val) Vec.add(results, ("icrc7:max_take_value", #Nat(val)));
+        case (null) {};
+      };
+
+      switch (max_memo_size()) {
+        case (?val) Vec.add(results, ("icrc7:max_memo_size", #Nat(val)));
+        case (null) {};
+      };
+
+      Vec.toArray(results);
+    };
+
+    /// Returns the token metadata for token_ids, a list of token ids. Each tuple in the response vector comprises a token id as first element and the metadata corresponding to this token expressed as an optional record comprising text and Value pairs expressing the token metadata as second element. In case a token does not exist, its associated metadata vector is null. If a token does not have metadata, its associated metadata vector is the empty vector.
+    public func token_metadata(token_ids : [Nat]) : Service.TokenMetadataResponse {
+      switch (get_token_infos_shared(token_ids)) {
+        case (#ok(val)) val;
+        case (#err(err)) D.trap(err);
+      }
+    };
+
+    /// Returns the owner Account of each token in a list token_ids of token ids. The response elements are sorted following an ordering depending on the ledger implementation.
+    public func owner_of(token_ids : [Nat]) : Service.OwnerOfResponse {
+      switch (get_token_owners(token_ids)) {
+        case (#ok(val)) val;
+        case (#err(err)) D.trap(err);
+      };
+    };
+
+    /// Returns the balance of the account provided as an argument, i.e., the number of tokens held by the account. For a non-existing account, the value 0 is returned.
+    public func balance_of(account : Service.Account) : Nat {
+      get_token_owners_tokens_count(account);
+    };
+
+    /// Returns the list of tokens in this ledger, sorted by their token id.
+    public func tokens(prev :?Nat, take :?Nat) : [Nat]{
+        get_tokens_paginated(prev, take);
+    };
+
+    /// Returns a vector of token_ids of all tokens held by account, sorted by token_id. The token ids in the response are sorted in any consistent sorting order used by the ledger. The result is paginated, the mechanics of pagination are analogous to icrc7_tokens using prev and take to control pagination.
+    public func tokens_of(account : Service.Account, prev :?Nat, take :?Nat) : [Nat]{
+      get_tokens_of_paginated(account, prev, take);
+    };
+
+    /// Transfers one or more tokens from the account defined by the caller principal and subaccount to the to account. The transfer can only be initiated by the holder of the tokens.
+    public func transfer(caller: Principal, args : Service.TransferArgs) : Service.TransferResponse {
+      switch (transfer_tokens(caller, args)) {
+        case (#ok(val)) val;
+        case (#err(err)) D.trap(err);
+      };
+    };
+
+    /// Returns the list of standards this ledger implements.
+    public func supported_standards() : Service.SupportedStandardsResponse {
+      let standards = Vec.new<{name : Text; url : Text }>();
+      Vec.add(standards, { name= "icrc7"; url = "https://github.com/dfinity/ICRC/ICRCs/ICRC-7" });
+      Vec.toArray(standards);
+    };
+    
     /// Returns the collection level ledger information.
     ///
     /// Returns:
@@ -233,13 +375,16 @@ module {
     ///      token_ids : [Nat] - The list of token ids to retrieve metadata for.
     ///
     /// Returns:
-    ///      [(Nat, ?NFT)] - A tuple array with token ids and their corresponding metadata.
-    public func get_token_infos(token_ids: [Nat]) : [(Nat, ?NFT)]{
+    ///      [(Nat, NFT)] - A tuple array with token ids and their corresponding metadata. If a token does not exist, it won't be returned.
+    public func get_token_infos(token_ids: [Nat]) : [(Nat, NFT)]{
       debug if(debug_channel.announce) D.print("get_token_infos" # debug_show(token_ids));
-      func getToken(x: Nat) : ((Nat, ?NFT)){
-        return (x, get_token_info(x));
+      func getToken(x: Nat) : ?(Nat, NFT){
+        switch (get_token_info(x)){
+          case (null)  null;
+          case (?val) ?(x, val);
+        };
       };
-      return Array.map<Nat, (Nat, ?NFT)>(token_ids, getToken);
+      return Array.mapFilter<Nat, (Nat, NFT)>(token_ids, getToken);
     };
 
     /// Retrieves shared metadata for a list of tokens.
@@ -248,29 +393,24 @@ module {
     ///      token_ids : [Nat] - The list of token ids to retrieve shared metadata for.
     ///
     /// Returns:
-    ///      Result.Result<[(Nat, ?NFTMap)], Text> - A result containing a tuple array of token ids and their corresponding NFTMap metadata or an error message if the query size exceeds limits.
-    public func get_token_infos_shared(token_ids: [Nat]) : Result.Result<[(Nat, ?NFTMap)], Text>{
+    ///      Result.Result<[(Nat, NFTMap)], Text> - A result containing a tuple array of token ids and their corresponding NFTMap metadata or an error message if the query size exceeds limits.
+    public func get_token_infos_shared(token_ids: [Nat]) : Result.Result<[{token_id :Nat; metadata: NFTMap}], Text>{
       debug if(debug_channel.announce) D.print("get_token_infos_shared" # debug_show(token_ids));
 
-    
       if(token_ids.size() > state.ledger_info.max_query_batch_size) return #err("too many tokenids in query. Max is " # Nat.toText(state.ledger_info.max_query_batch_size));
         
-
-
-      return #ok(Array.map<(Nat, ?NFT), (Nat, ?NFTMap)>(get_token_infos( token_ids), func(x) : (Nat, ?NFTMap){ 
-      switch(x.1){
-        case(null)(x.0,null);
-        case(?val){
-          switch(CandyConversion.CandySharedToValue(CandyTypes.shareCandy(val))){
+      return #ok(Array.map<(Nat, NFT), {token_id : Nat; metadata: NFTMap}>(get_token_infos( token_ids), func(x) : {token_id : Nat; metadata: NFTMap}{ 
+          switch(CandyConversion.CandySharedToValue(CandyTypes.shareCandy(x.1))){
             case(#Map(val)){
-              (x.0, ?val);
+              {token_id = x.0; metadata= val};
             };
             case(val){
-              (x.0, ?[("metadata" , val)]);
+              // if the metadata is set correctly, this case shouldn't occur
+              // TODO: remove this case once we are sure that the metadata is always a map
+              {token_id =x.0; metadata= [("metadata",val)]};
             };
           };
-        };
-      }}));
+      }));
     };
 
     /// Retrieves the account owner for a specific token.
@@ -493,21 +633,18 @@ module {
     public func get_token_owners(token_ids: [Nat]) : Result.Result<OwnerOfResponses, Text>{
 
       
-      if(token_ids.size() > state.ledger_info.max_query_batch_size) return #err("too many tokenids in qurey. Max is " # Nat.toText(state.ledger_info.max_query_batch_size));
+      if(token_ids.size() > state.ledger_info.max_query_batch_size) return #err("too many tokenids in query. Max is " # Nat.toText(state.ledger_info.max_query_batch_size));
         
       
       let items = removeDupes(token_ids);
 
-      let result = Vec.new<OwnerOfResponse>();
-      for(thisItem in items.vals()){
-        switch(get_token_owner(thisItem)){
-          case(null){};
-          case(?val){
-            Vec.add(result, val);
-          };
+      // this won't produce a OwnerOfResponse if the token_id doesn't exist
+      #ok(Array.mapFilter<Nat, OwnerOfResponse>(items, func(x) : ?OwnerOfResponse {
+        switch(get_token_owner(x)){
+          case(null) null;
+          case(val) val;
         };
-      };
-      return #ok(Vec.toArray(result));
+      }));
     };
 
     /// Retrieves the set of tokens owned by an account.
@@ -1474,7 +1611,7 @@ module {
     ///
     /// Returns:
     ///      Result<Result<TransferResponse, Text>, Text> - The result of the transfer operation, which may contain a success response or an error message.
-    public func transfer(caller: Principal, transferArgs: TransferArgs) : Result.Result<TransferResponse, Text> {
+    public func transfer_tokens(caller: Principal, transferArgs: TransferArgs) : Result.Result<TransferResponse, Text> {
 
       if(state.ledger_info.allow_transfers == false){
         return #err("transfers not allowed");
