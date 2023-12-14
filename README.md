@@ -192,8 +192,8 @@ By returning an #err from these functions you will effectively cancel the transa
 Wire these functions up by including them in your environment object.
 
 ```
-    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: TransferNotification), Text>);
-    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notificication: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: MintNotification), Text>);
-    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notificication: BurnNotification), Text>);
+    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notification: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: TransferNotification), Text>);
+    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notification: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: MintNotification), Text>);
+    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notification: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: BurnNotification), Text>);
 
 ```
