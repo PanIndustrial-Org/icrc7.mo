@@ -20,6 +20,16 @@ module {
       case(_) caller;
     };
 
+    func set_supported_standards(args : MigrationTypes.Args) : v0_1_0.SupportedStandards {
+      let icrc7_standard = {
+        name = "icrc7";
+        url = "https://github.com/dfinity/ICRC/ICRCs/ICRC-7";
+      };
+      let ?test = args else return [icrc7_standard];
+      let ?supported_standards = test.supported_standards else return [icrc7_standard];
+      supported_standards;
+    };
+    
     let ledger_info = switch(args){
       case(?val){
         {val with
@@ -111,6 +121,7 @@ module {
           owner_subaccount = MigrationTypes.Current.token_property_owner_subaccount;
         };
       };
+      var supported_standards = set_supported_standards(args);
     };
 
     return #v0_1_0(#data(state));

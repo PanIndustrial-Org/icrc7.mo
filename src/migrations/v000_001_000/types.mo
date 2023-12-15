@@ -391,6 +391,7 @@ module {
     nfts: Map.Map<Nat, NFT>;
     ledger : Vec.Vector<Value>;
     var owner : Principal;
+    var supported_standards : SupportedStandards;
     indexes: Indexes;
     constants : Constants;
   };
@@ -400,6 +401,7 @@ module {
     nft_count: Nat;
     ledger_count : Nat;
     owner : Principal;
+    supported_standards : SupportedStandards;
     indexes: {
       nft_to_owner_count : Nat;
       owner_to_nfts_count :Nat;
