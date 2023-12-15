@@ -328,6 +328,8 @@ module {
     return accumulator;
   };
 
+  let nullBlob  : Blob = "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";
+
   public func account_eq(a : Account, b : Account) : Bool{
     D.print("testing account " # debug_show((a,b)));
     if(a.owner != b.owner) return false;
@@ -336,7 +338,16 @@ module {
       case(?vala, ?valb){
         if(vala != valb) return false;
       };
-      case(_,_) return false;
+      case(null,?val){
+        if(not(nullBlob == val)){
+          return false;
+        }
+      };
+      case(?val,null){
+        if(not(nullBlob == val)){
+          return false;
+        }
+      };
     };
     return true;
   };
