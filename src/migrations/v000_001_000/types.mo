@@ -318,15 +318,17 @@ module {
   };
 
   public func account_hash32(a : Account) : Nat32{
-    var accumulator = Map.phash.0(a.owner);
-    switch(a.subaccount){
-      case(null){};
-      case(?val){
-        accumulator +%= Map.bhash.0(val);
+      var accumulator = Map.phash.0(a.owner);
+      switch(a.subaccount){
+        case(null){
+          accumulator +%= Map.bhash.0(nullBlob);
+        };
+        case(?val){
+          accumulator +%= Map.bhash.0(val);
+        };
       };
+      return accumulator;
     };
-    return accumulator;
-  };
 
   let nullBlob  : Blob = "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";
 
@@ -357,8 +359,14 @@ module {
       switch(a.subaccount, b.subaccount){
         case(null, null) return #equal;
         case(?vala, ?valb) return Blob.compare(vala,valb);
-        case(null, ?valb) return #less;
-        case(?vala, null) return #greater;
+        case(null, ?valb){
+          if(valb == nullBlob) return #equal;
+         return #less;
+        };
+        case(?vala, null){
+          if(vala == nullBlob) return #equal;
+          return #greater;
+        }
       };
     } else return Principal.compare(a.owner, b.owner);
   };
