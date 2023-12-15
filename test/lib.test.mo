@@ -39,6 +39,7 @@ let baseCollection = {
   allow_transfers = null;
   burn_account = null;
   deployer = testOwner;
+  supported_standards = null;
 };
 
 let baseNFT : CandyTypesLib.CandyShared = #Class([
@@ -240,17 +241,41 @@ test("Query for batched token metadata by a list of IDs should return correct me
   let found_nfts = icrc7.get_token_infos(token_ids);
 
   // Assert: The received metadata for all queried tokens should match the expected metadata
-  assert(CandyTypesLib.eq(CandyTypesLib.unshare(metadata1), Opt.get<ICRC7.NFT>(Opt.get<(Nat, ?ICRC7.NFT)>(Array.find<(Nat,?ICRC7.NFT)>(found_nfts, func(x : (Nat,?ICRC7.NFT)){x.0 == 1;}), (0, ?#Nat(0))).1, #Nat(0))));
+  func findAndConvertToCandy(found_nfts: [(Nat, ICRC7.NFT)], targetNat: Nat) : CandyTypesLib.Candy {
+    let foundItem = Array.find<(Nat, ICRC7.NFT)>(found_nfts, func(x : (Nat, ICRC7.NFT)) : Bool { x.0 == targetNat; });
+    switch (foundItem) {
+        case (null) { #Nat(0) };  // Return null if no match is found
+        case (?foundTuple) {
+            foundTuple.1  // Convert to Candy and return, replace with actual logic
+        };
+    }
+  };
+
+  let foundItem = Array.find<(Nat, ICRC7.NFT)>(found_nfts, func(x : (Nat, ICRC7.NFT)) : Bool { x.0 == 1; });
+
+  assert(
+      switch (foundItem) {
+          case (null) { false };  // Handle the case where no item is found
+          case (?foundTuple) {
+              // Assuming that foundTuple.1 is of type NFT and needs to be converted to Candy
+              let candyFromNFT = foundTuple.1; // Replace with your actual conversion logic
+              CandyTypesLib.eq(
+                  CandyTypesLib.unshare(metadata1), 
+                  candyFromNFT  // Use the converted Candy type
+              )
+          };
+      }
+  );
+  
 
   let baseNFT2 : CandyTypesLib.Candy = CandyTypesLib.unshare(#Class(metadata2));
-  assert(CandyTypesLib.eq(
-    baseNFT2 , 
-    Opt.get<ICRC7.NFT>(
-      Opt.get<(Nat, ?ICRC7.NFT)>(
-        Array.find<(Nat,?ICRC7.NFT)>(found_nfts, func(x : (Nat,?ICRC7.NFT)){x.0 == 2;}), (0, ?#Nat(0))).1, #Nat(0)) : CandyTypesLib.Candy));
-  let baseNFT3 : CandyTypesLib.Candy = CandyTypesLib.unshare(#Class(metadata3));
+  let candyFromNFT2 = findAndConvertToCandy(found_nfts, 2);
+  assert(CandyTypesLib.eq(baseNFT2, candyFromNFT2));
 
-  assert(CandyTypesLib.eq(baseNFT3, Opt.get<ICRC7.NFT>(Opt.get<(Nat, ?ICRC7.NFT)>(Array.find<(Nat,?ICRC7.NFT)>(found_nfts, func(x : (Nat,?ICRC7.NFT)){x.0 == 3;}), (0, ?#Nat(0))).1, #Nat(0))));
+  let baseNFT3 : CandyTypesLib.Candy = CandyTypesLib.unshare(#Class(metadata3));
+  let candyFromNFT3 = findAndConvertToCandy(found_nfts, 3);
+  assert(CandyTypesLib.eq(baseNFT3, candyFromNFT3));
+
 });
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
@@ -471,7 +496,7 @@ test("Transfer a token to another account", func() {
 
   D.print("about to transfer" # debug_show(transferArgs));
 
-  let #ok(#Ok(transferResults)) = icrc7.transfer(tokenOwner, transferArgs) else return assert(false);
+  let #ok(#Ok(transferResults)) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
 
   D.print("transfer" # debug_show(transferResults));
 
@@ -523,7 +548,7 @@ test("Reject Transfer Attempt by Unauthorized User", func() {
   };
 
   // Act: Attempt to transfer a token by an unauthorized user
-  let #ok(#Ok(transferResponses)) = icrc7.transfer(unauthorizedOwner.owner, unauthorizedTransferArgs) else return assert(false);
+  let #ok(#Ok(transferResponses)) = icrc7.transfer_tokens(unauthorizedOwner.owner, unauthorizedTransferArgs) else return assert(false);
 
   // Assert: Check if the transfer attempt is rejected
   assert(
@@ -692,8 +717,8 @@ test("Attempt to transfer with duplicate or empty token ID arrays", func() {
   };
 
   // Act: Attempt approval requests with duplicate and empty token ID arrays
-  let #err(approvalResponsesWithDuplicates) = icrc7.transfer(testOwner, transferArgs) else return assert(false);
-  let #err(approvalResponsesEmpty) = icrc7.transfer(testOwner, transferArgs2) else return assert(false);
+  let #err(approvalResponsesWithDuplicates) = icrc7.transfer_tokens(testOwner, transferArgs) else return assert(false);
+  let #err(approvalResponsesEmpty) = icrc7.transfer_tokens(testOwner, transferArgs2) else return assert(false);
  
   /* let approvalResponsesWithDuplicates = icrc7.approve_transfers(base_environment, tokenOwner, tokenIdsWithDuplicates, approvalInfo) else return assert(false);
   let approvalResponsesEmpty = icrc7.approve_transfers(base_environment, tokenOwner, emptyTokenIds, approvalInfo) else return assert(false); */
@@ -728,7 +753,7 @@ test("Test DeDupe on transfer", func() {
 
   D.print("about to transfer" # debug_show(transferArgs));
 
-  let #ok(#Ok(transferResults)) = icrc7.transfer(tokenOwner, transferArgs) else return assert(false);
+  let #ok(#Ok(transferResults)) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
 
   D.print("transfer" # debug_show(transferResults));
 
@@ -741,13 +766,13 @@ test("Test DeDupe on transfer", func() {
   };
 
   //send back
-  let #ok(#Ok(transferResults2)) = icrc7.transfer(toAccount.owner, transferArgs2) else return assert(false);
+  let #ok(#Ok(transferResults2)) = icrc7.transfer_tokens(toAccount.owner, transferArgs2) else return assert(false);
 
   D.print("transfer back" # debug_show(transferResults2));
 
 
   //replay back
-  let #ok(#Ok(transferResults3)) = icrc7.transfer(tokenOwner, transferArgs) else return assert(false);
+  let #ok(#Ok(transferResults3)) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
 
   D.print("duplicate " # debug_show(transferResults3));
 
@@ -788,7 +813,7 @@ test("Test DeDupe on transfer", func() {
   //advance time more than two minutes
     ignore set_time(get_time64() + (1_000_000_000 * 60 * 2) + 1);
 
-    let #ok(#Ok(transferResults4)) = icrc7.transfer(tokenOwner, {transferArgs with created_at_time = ?get_time64()}) else return assert(false);
+    let #ok(#Ok(transferResults4)) = icrc7.transfer_tokens(tokenOwner, {transferArgs with created_at_time = ?get_time64()}) else return assert(false);
 
     D.print("unduped " # debug_show(transferResults4));
 
