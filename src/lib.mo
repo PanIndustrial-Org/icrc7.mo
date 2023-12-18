@@ -1916,12 +1916,12 @@ module {
       });
 
       let new_owner_map = Map.new<Text, CandyTypes.Candy>();
-      ignore Map.add<Text, CandyTypes.Candy>(new_owner_map, Map.thash, state.constants.token_properties.owner_principal, #Blob(Principal.toBlob(target_owner.owner)));
+      ignore Map.put<Text, CandyTypes.Candy>(new_owner_map, Map.thash, state.constants.token_properties.owner_principal, #Blob(Principal.toBlob(target_owner.owner)));
 
       switch (target_owner.subaccount) {
         case (null) {};
         case (?val) {
-          ignore Map.add<Text, CandyTypes.Candy>(new_owner_map, Map.thash, state.constants.token_properties.owner_subaccount, #Blob(val));
+          ignore Map.put<Text, CandyTypes.Candy>(new_owner_map, Map.thash, state.constants.token_properties.owner_subaccount, #Blob(val));
         };
       };
 
