@@ -1083,7 +1083,7 @@ module {
                 };
               };
               case (#ok(val)) {
-                ignore unindex_owner(thisItem, val);
+               
                 val;
               };
             };
@@ -1157,6 +1157,8 @@ module {
             };
           };
         };
+
+        ignore unindex_owner(thisItem, current_owner);
 
         let transaction_id = switch (environment.add_ledger_transaction) {
           case (null) {
@@ -1297,14 +1299,12 @@ module {
               );
               continue proc;
             };
-            //this nft is being updated and we need to de-index it.
-            switch (get_token_owner_canonical(thisItem.token_id)) {
-              case (#err(_)) {};
-              case (#ok(val)) ignore unindex_owner(thisItem.token_id, val);
-            };
+           
             false;
           };
         };
+
+
         let trx = Vec.new<(Text, Value)>();
         let trxtop = Vec.new<(Text, Value)>();
 
@@ -1397,6 +1397,14 @@ module {
             };
           };
           case (?val) val(#Map(Vec.toArray(trx)), ? #Map(Vec.toArray(trxtop)));
+        };
+
+        if(bNew == false){
+          //this nft is being updated and we need to de-index it.
+          switch (get_token_owner_canonical(thisItem.token_id)) {
+            case (#err(_)) {};
+            case (#ok(val)) ignore unindex_owner(thisItem.token_id, val);
+          };
         };
 
         ignore Map.put<Nat, CandyTypes.Candy>(state.nfts, Map.nhash, thisItem.token_id, CandyTypes.unshare(thisItem.metadata));
@@ -1768,16 +1776,8 @@ module {
       };
 
       debug if (debug_channel.transfer) D.print("about to move the token");
-      //move the token
-      switch (update_token_owner(token_id, ?{ owner = caller; subaccount = transferArgs.subaccount }, transferArgs.to)) {
-        case (#ok(updated_nft)) {};
-        case (#err(err)) {
-          return {
-            token_id = token_id;
-            transfer_result = #Err(#GenericError(err));
-          };
-        };
-      };
+
+      
 
       let txMap = #Map(Vec.toArray(trx));
       let txTopMap = #Map(Vec.toArray(trxtop));
@@ -1797,11 +1797,24 @@ module {
           switch (remote_func(txMap, ?txTopMap, preNotification)) {
             case (#ok(val)) val;
             case (#err(tx)) {
+              
               return {
                 token_id = token_id;
                 transfer_result = #Err(#GenericError({ error_code = 6453; message = tx }));
               };
             };
+          };
+        };
+      };
+
+      let old_owner = { owner = caller; subaccount = transferArgs.subaccount };
+      //move the token
+      switch (update_token_owner(token_id, ?old_owner, transferArgs.to)) {
+        case (#ok(updated_nft)) {};
+        case (#err(err)) {
+          return {
+            token_id = token_id;
+            transfer_result = #Err(#GenericError(err));
           };
         };
       };
