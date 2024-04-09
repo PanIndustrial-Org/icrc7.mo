@@ -17,22 +17,7 @@ import ICRC7 "mo:icrc7.mo";
 This ICRC7 class uses a migration pattern as laid out in https://github.com/ZhenyaUsenko/motoko-migrations, but encapsulates the pattern in the Class+ pattern as described at https://forum.dfinity.org/t/writing-motoko-stable-libraries/21201 . As a result, when you insatiate the class you need to pass the stable memory state into the class:
 
 ```
-stable var icrc7_migration_state = ICRC7.init(ICRC7.initialState() , #v0_1_0(#id), ?{
-        symbol = ?"TST";
-        name = ?"Test NFT";
-        description = ?"A Test Collection";
-        logo = ?"https://www.icpscan.co/img/motoko.jpeg";
-        supply_cap = null;
-        total_supply = 0;
-        max_query_batch_size = ?100;
-        max_update_batch_size = ?100;
-        default_take_value = ?1000;
-        max_take_value = ?10000;
-        max_memo_size = ?512;
-        permitted_drift = null;
-        deployer = init_msg.caller;
-        allow_transfers = null;
-      } : ICRC7.InitArgs;
+stable var icrc7_migration_state = ICRC7.init(ICRC7.initialState() , #v0_1_0(#id), ICRC7Default.defaultConfig
     , init_msg.caller);
 
   let #v0_1_0(#data(icrc7_state_current)) = icrc7_migration_state;
@@ -77,6 +62,7 @@ The environment pattern lets you pass dynamic information about your environment
 - can_transfer - override functions to access and manipulate a transfer transaction just before it is committed.
 - can_mint - override functions to access and manipulate a mint transaction just before it is committed.
 - can_burn - override functions to access and manipulate a burn transaction just before it is committed.
+- can_update - override functions to access and manipulate an update transaction just before it is committed.
 
 ### Input Init Args
 
@@ -95,7 +81,7 @@ The environment pattern lets you pass dynamic information about your environment
   - burn_account - set to null to delete burned nft or an opt account to have the NFTs transferred to a black hole.
   - deployer - the principal deploying, will be the owner of the collection;
 
-## Metadata and Ownership
+## Metadata
 
 This class stores metadata using ICRC16 compliant hierarchical objects.  It utilizes the CandyLibrary(https://github.com/icdevsorg/candy_library) v0.3.0 to do this.
 
@@ -107,36 +93,8 @@ Why use ICRC16 as the input? ICRC16 provides the #Class type which allows an imm
 
 Since ICRC16 is a superset of Value, feel free to ignore this functionality and just use the Value Variant options and everything will work as intended.
 
-When logging transactions, this library currently logs only the Representational Independent Hash blob of the metadata in the transaction log.  Implementation providers should take care to store the data in a way that overcomes the data availability problem so that the internal state can be verified via the transaction log.  The ICRC working groups intent to tackle this problem in the near future.
+Updates to existing metadata can be accomplished using the `update_nfts` function and providing a properties update object as specified in the Candy Classes.
 
-### Ownership
-
-Ownership is maintained inside the metadata of the NFT in the top level property icrc7:owner_account.  If pushing in data you would format this:
-
-```
-#Map([
-  ("icrc7:owner_account",
-    #Map([
-      ("icrc7:owner_principal", #Blob(Principal.toBlob(ownerPrincipal))),
-      ("icrc7:owner_subaccount", #Blob(ownerSubaccount)),
-    ])
-  ),
-  //...other properties
-])
-
-or
-
-#Class([
-  {name = "icrc7:owner_account"; value=#Map([
-      ("icrc7:owner_principal", #Blob(Principal.toBlob(ownerPrincipal))),
-      ("icrc7:owner_subaccount", #Blob(ownerSubaccount)),
-    ]); immutable=false;},
-  //...other properties
-])
-
-```
-
-If the owner key is not set, the system assumes tha that the canister owns the NFT.
 
 ## Deduplication
 
@@ -148,9 +106,11 @@ The class uses a Representational Independent Hash map to keep track of duplicat
 
 The class has a register_token_transferred_listener, register_token_mint_listener, and register_token_burn_listener endpoints that allows other objects to register an event listener and be notified whenever a token event occurs from one user to another.
 
-This functionality is used by the ICRC30.mo component to clear approvals whenever a token changes hands or is burned.
+This functionality is used by the ICRC37.mo component to clear approvals whenever a token changes hands or is burned.
 
 The events are synchronous and cannot directly make calls to other canisters.  We suggest using them to set timers if notifications need to be sent using the Timers API.
+
+The Mint Notification handles both updates and mints. The `new_token` will be true for new mints.
 
 ```
   public type MintNotification = {
@@ -195,5 +155,7 @@ Wire these functions up by including them in your environment object.
     can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notification: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: TransferNotification), Text>);
     can_mint : ?((trx: Transaction, trxtop: ?Transaction, notification: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: MintNotification), Text>);
     can_burn : ?((trx: Transaction, trxtop: ?Transaction, notification: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: BurnNotification), Text>);
+    can_update : ?((trx: Transaction, trxtop: ?Transaction, notification: UpdateNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: UpdateNotification), Text>);
+
 
 ```

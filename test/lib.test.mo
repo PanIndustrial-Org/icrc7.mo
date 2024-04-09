@@ -13,16 +13,19 @@ import Set "mo:map9/Set";
 import Opt "mo:base/Option";
 import CandyConv  "mo:candy_0_3_0/conversion";
 import D "mo:base/Debug";
-import {test} "mo:test";
+import Debug "mo:base/Debug";
+import {test; testsys} "mo:test";
+import Vec "mo:vector";
 
 let testOwner = Principal.fromText("exoh6-2xmej-lux3z-phpkn-2i3sb-cvzfx-totbl-nzfcy-fxi7s-xiutq-mae");
+let testOwnerAccount = {owner = testOwner; subaccount = null};
 let testCanister = Principal.fromText("p75el-ys2la-2xa6n-unek2-gtnwo-7zklx-25vdp-uepyz-qhdg7-pt2fi-bqe");
 
-let spender1 : ICRC7.Account = {owner = Principal.fromText("2dzql-vc5j3-p5nyh-vidom-fhtyt-edvv6-bqewt-j63fn-ovwug-h67hb-yqe"); subaccount = ?Blob.fromArray([1,2])};
-let spender2 : ICRC7.Account = {owner = Principal.fromText("32fn4-qqaaa-aaaak-ad65a-cai"); subaccount = ?Blob.fromArray([3,4])};
-let spender3 : ICRC7.Account = {owner = Principal.fromText("zfcdd-tqaaa-aaaaq-aaaga-cai"); subaccount = ?Blob.fromArray([5,6])};
-let spender4 : ICRC7.Account = {owner = Principal.fromText("x33ed-h457x-bsgyx-oqxqf-6pzwv-wkhzr-rm2j3-npodi-purzm-n66cg-gae"); subaccount = ?Blob.fromArray([7,8])};
-let spender5 : ICRC7.Account = {owner = Principal.fromText("dtnbn-kyaaa-aaaak-aeigq-cai"); subaccount = ?Blob.fromArray([9,10])};
+let spender1 : ICRC7.Account = {owner = Principal.fromText("2dzql-vc5j3-p5nyh-vidom-fhtyt-edvv6-bqewt-j63fn-ovwug-h67hb-yqe"); subaccount = ?Blob.fromArray([1,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])};
+let spender2 : ICRC7.Account = {owner = Principal.fromText("32fn4-qqaaa-aaaak-ad65a-cai"); subaccount = ?Blob.fromArray([3,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])};
+let spender3 : ICRC7.Account = {owner = Principal.fromText("zfcdd-tqaaa-aaaaq-aaaga-cai"); subaccount = ?Blob.fromArray([5,6,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])};
+let spender4 : ICRC7.Account = {owner = Principal.fromText("x33ed-h457x-bsgyx-oqxqf-6pzwv-wkhzr-rm2j3-npodi-purzm-n66cg-gae"); subaccount = ?Blob.fromArray([7,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])};
+let spender5 : ICRC7.Account = {owner = Principal.fromText("dtnbn-kyaaa-aaaak-aeigq-cai"); subaccount = ?Blob.fromArray([9,10,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])};
 
 let baseCollection = {
   symbol = ?"anft";
@@ -36,6 +39,7 @@ let baseCollection = {
   max_take_value = ?105;
   max_memo_size = ?512;
   permitted_drift = null;
+  tx_window = null;
   allow_transfers = null;
   burn_account = null;
   deployer = testOwner;
@@ -43,17 +47,10 @@ let baseCollection = {
 };
 
 let baseNFT : CandyTypesLib.CandyShared = #Class([
-  {immutable=false; name=ICRC7.token_property_owner_account; value = #Map([(ICRC7.token_property_owner_principal,#Blob(Principal.toBlob(testOwner)))]);},
   {immutable=false; name="url"; value = #Text("https://example.com/1");}
 ]);
 
 let baseNFTWithSubAccount : CandyTypesLib.CandyShared = #Class([
-  {immutable=false; name=ICRC7.token_property_owner_account; value = #Map(
-    
-    [(ICRC7.token_property_owner_principal, #Blob(Principal.toBlob(testOwner))),
-     (ICRC7.token_property_owner_subaccount, #Blob(Blob.fromArray([1])))
-    ]
-    );},
   {immutable=false; name="url"; value = #Text("https://example.com/1");}
 ]);
 
@@ -99,6 +96,7 @@ let base_environment= {
   can_mint = null;
   can_burn = null;
   can_transfer = null;
+  can_update = null;
 };
 
 test("symbol can be initialized and updated", func() {
@@ -188,7 +186,7 @@ test("ICRC7 contract initializes with correct default state", func() {
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
-test("Query for token metadata by ID should return correct token metadata", func() {
+testsys<system>("Query for token metadata by ID should return correct token metadata",  func <system>(){
 
   D.print("starting token metatdata test");
   // The ICRC7 class and base environment are set up from the provided framework
@@ -200,20 +198,27 @@ test("Query for token metadata by ID should return correct token metadata", func
   let token_id = 1; // Assuming token ID `1` has been minted with known metadata
   let metadata = baseNFT;
   D.print("about to set" # debug_show(metadata));
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=metadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner,[{
+    token_id=token_id;
+    override=true;
+    metadata=metadata;
+    owner= ?testOwnerAccount;
+    memo=null;
+    created_at_time=null;
+  }],false);
 
   D.print("nft has been set" # debug_show(nft));
   
-  let ?found_nft = icrc7.get_token_info(token_id) else return assert(false);
+  let ?found_nft = icrc7.get_nft(token_id) else return assert(false);
 
   D.print("have an nft" # debug_show(found_nft));
   // Assert: The received metadata should match the expected metadata
-  assert(CandyTypesLib.eq(CandyTypesLib.unshare(metadata), found_nft));
+  assert(CandyTypesLib.eq(CandyTypesLib.unshare(metadata), found_nft.meta));
 });
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Query for batched token metadata by a list of IDs should return correct metadata for all queried tokens", func() {
+testsys<system>("Query for batched token metadata by a list of IDs should return correct metadata for all queried tokens", func<system>() {
 
   // The ICRC7 class and base environment are set up from the provided framework
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
@@ -234,34 +239,35 @@ test("Query for batched token metadata by a list of IDs should return correct me
   }]) else return assert(false);
   
   
-  let nft1 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=1;override=true;metadata=metadata1;}]});
-  let nft2 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=2;override=true;metadata=#Class(metadata2)}]});
-  let nft3 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=3;override=true;metadata=#Class(metadata3)}]});
+  let nft1 = icrc7.set_nfts<system>(testOwner, [{token_id=1;override=true;metadata=metadata1;memo=null;created_at_time=null;owner = ?testOwnerAccount;}],false);
+  let nft2 = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=2;override=true;metadata=#Class(metadata2);}],false);
+  let nft3 = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=3;override=true;metadata=#Class(metadata3);}],false);
 
   let found_nfts = icrc7.get_token_infos(token_ids);
 
   // Assert: The received metadata for all queried tokens should match the expected metadata
-  func findAndConvertToCandy(found_nfts: [(Nat, ICRC7.NFT)], targetNat: Nat) : CandyTypesLib.Candy {
-    let foundItem = Array.find<(Nat, ICRC7.NFT)>(found_nfts, func(x : (Nat, ICRC7.NFT)) : Bool { x.0 == targetNat; });
+  func findAndConvertToCandy(found_nfts: [(Nat, ?ICRC7.NFT)], targetNat: Nat) : CandyTypesLib.Candy {
+    let foundItem = Array.find<(Nat, ?ICRC7.NFT)>(found_nfts, func(x : (Nat, ?ICRC7.NFT)) : Bool { x.0 == targetNat; });
     switch (foundItem) {
-        case (null) { #Nat(0) };  // Return null if no match is found
-        case (?foundTuple) {
-            foundTuple.1  // Convert to Candy and return, replace with actual logic
-        };
+      case (?(_, ?foundTuple)) {
+            foundTuple.meta  // Convert to Candy and return, replace with actual logic
+      };
+      case (_) { #Nat(0) };  // Return null if no match is found
+        
     }
   };
 
-  let foundItem = Array.find<(Nat, ICRC7.NFT)>(found_nfts, func(x : (Nat, ICRC7.NFT)) : Bool { x.0 == 1; });
+  let foundItem = Array.find<(Nat, ?ICRC7.NFT)>(found_nfts, func(x : (Nat, ?ICRC7.NFT)) : Bool { x.0 == 1; });
 
   assert(
       switch (foundItem) {
           case (null) { false };  // Handle the case where no item is found
           case (?foundTuple) {
               // Assuming that foundTuple.1 is of type NFT and needs to be converted to Candy
-              let candyFromNFT = foundTuple.1; // Replace with your actual conversion logic
+              let ?candyFromNFT = foundTuple.1; // Replace with your actual conversion logic
               CandyTypesLib.eq(
                   CandyTypesLib.unshare(metadata1), 
-                  candyFromNFT  // Use the converted Candy type
+                  candyFromNFT.meta  // Use the converted Candy type
               )
           };
       }
@@ -280,7 +286,7 @@ test("Query for batched token metadata by a list of IDs should return correct me
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Query for the owner of a specific token ID should return correct owner information", func() {
+testsys<system>("Query for the owner of a specific token ID should return correct owner information", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
 
@@ -289,73 +295,57 @@ test("Query for the owner of a specific token ID should return correct owner inf
   // This represents the 'Arrange' part of the test (Arrange-Act-Assert)
   let token_id = 1; // Assuming token ID `1` has been minted with known ownership information
   let metadata = baseNFT;
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=metadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id;override=true;metadata=metadata;}],false);
   
   
   // Act: Query the owner information for the specified token ID
-  let ?ownerResponse = icrc7.get_token_owner(token_id);
+  let ?ownerResponse = icrc7.get_token_owner(token_id) else return assert(false);
   D.print(debug_show(ownerResponse));
 
-  let ?ownerAccount = ownerResponse.account else return assert(false);
+
 
   // Assert: The received owner information should match the expected owner information
-  assert(ICRC7.account_eq(ownerAccount, {owner = testOwner; subaccount = null}));
+  assert(ICRC7.account_eq(ownerResponse, {owner = testOwner; subaccount = null}));
 
   //with sub account
   let token_id2 = 2; // Assuming token ID `1` has been minted with known ownership information
+  let ownerSubaccount = Blob.fromArray([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]);
   let metadata2 = baseNFTWithSubAccount;
-  let nft2 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id2;override=true;metadata=metadata2;}]});
+  let nft2 = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?{testOwnerAccount with subaccount = ?ownerSubaccount};token_id=token_id2;override=true;metadata=metadata2;}],false);
   
   
   // Act: Query the owner information for the specified token ID
   let ?ownerResponse2 = icrc7.get_token_owner(token_id2);
   D.print("have owner 2" # debug_show(ownerResponse2));
 
-  let ?ownerAccount2 = ownerResponse2.account else return assert(false);
-  D.print("have owner target" # debug_show({owner = testOwner; subaccount = ?Blob.fromArray([1])}));
+  
   // Assert: The received owner information should match the expected owner information
-  assert(ICRC7.account_eq(ownerAccount2, {owner = testOwner; subaccount = ?Blob.fromArray([1])}));
+  assert(ICRC7.account_eq(ownerResponse2, {owner = testOwner; subaccount = ?ownerSubaccount}));
 });
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Query for token ownership metadata directly from token metadata", func() {
+testsys<system>("Query for token ownership metadata directly from token metadata", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
 
   // Sample token ID for testing
   let token_id = 1; // Assuming token ID `1` has been minted with known ownership information
   let metadata = baseNFTWithSubAccount;
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id; override=true;metadata=metadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id; override=true;metadata=metadata;}],false);
 
   // Mockup metadata fetch from the ICRC7 contract
-  let ?fetched_metadata = icrc7.get_token_info(token_id) else return assert(false);
+  let ?fetched_metadata = icrc7.get_nft(token_id) else return assert(false);
 
-  switch(fetched_metadata){
-    case(#Class(val)){
-      let ?account = Map.get(val, Map.thash, ICRC7.token_property_owner_account) else return assert(false);
-      switch(account.value){
-        case(#Map(details)){
-          let ?owner = Map.get(details, Map.thash, ICRC7.token_property_owner_principal) else return assert(false);
-          let ?subaccount = Map.get(details, Map.thash, ICRC7.token_property_owner_subaccount) else return assert(false);
-          
-          assert(CandyTypesLib.eq(owner, #Blob(Principal.toBlob(testOwner))));
-          assert(CandyTypesLib.eq(subaccount, #Blob(Blob.fromArray([1]))));
-        };
-        case(_){
-          return assert(false);
-        };
-      };
-    };
-    case(_){
-      return assert(false);
-    };
-  }
+  let ?owner = fetched_metadata.owner else return assert(false);
+  assert(ICRC7.account_eq({owner = testOwner; subaccount = null}, owner));
+    
+  
 });
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Query for a list of token IDs owned by an account should return correct set of token IDs", func() {
+testsys<system>("Query for a list of token IDs owned by an account should return correct set of token IDs", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
 
@@ -366,10 +356,6 @@ test("Query for a list of token IDs owned by an account should return correct se
   let #ok(metadata2) = Properties.updatePropertiesShared(CandyConv.candySharedToProperties(baseNFT), [{
     name = "url";
     mode = #Set(#Text("https://example.com/2"))
-  },
-  {
-    name = ICRC7.token_property_owner_account;
-    mode = #Set(#Map([(ICRC7.token_property_owner_principal,#Blob(Principal.toBlob(testCanister)))]))
   }]) else return assert(false);
 
   let #ok(metadata3) = Properties.updatePropertiesShared(CandyConv.candySharedToProperties(baseNFT), [{
@@ -378,9 +364,9 @@ test("Query for a list of token IDs owned by an account should return correct se
   }]) else return assert(false);
   
   
-  let nft1 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=1;override=true;metadata=metadata1;}]});
-  let nft2 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=2;override=true;metadata=#Class(metadata2)}]});
-  let nft3 = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=3;override=true;metadata=#Class(metadata3)}]});
+  let nft1 = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=1;override=true;metadata=metadata1;}],false);
+  let nft2 = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=null;token_id=2;override=true;metadata=#Class(metadata2)}],false);
+  let nft3 = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=3;override=true;metadata=#Class(metadata3)}],false);
 
   D.print("nft 1 " # debug_show(metadata1));
   D.print("nft 2 " # debug_show(metadata2));
@@ -403,7 +389,7 @@ test("Query for a list of token IDs owned by an account should return correct se
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
-test("Paginate through the list of tokens and receive the correct page of tokens", func() {
+testsys<system>("Paginate through the list of tokens and receive the correct page of tokens", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
 
@@ -416,7 +402,7 @@ test("Paginate through the list of tokens and receive the correct page of tokens
       mode = #Set(#Text("https://example.com/" # Nat.toText(thisItem)))
     }]) else return assert(false);
 
-    let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=thisItem;override=true;metadata=#Class(metadata);}]});
+    let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=thisItem;override=true;metadata=#Class(metadata);}],false);
 
   };
   
@@ -433,7 +419,7 @@ test("Paginate through the list of tokens and receive the correct page of tokens
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Paginate through the list of tokens owned by an account", func() {
+testsys<system>("Paginate through the list of tokens owned by an account", func<system>() {
   // Assuming ICRC7 class, base environment, and baseNFT are set up from the provided framework
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   let account = testOwner; // Replace testOwner with the account whose tokens need pagination
@@ -448,14 +434,9 @@ test("Paginate through the list of tokens owned by an account", func() {
       name = "url";
       mode = #Set(#Text("https://example.com/" # Nat.toText(thisItem)))
     },
-    {
-      name = ICRC7.token_property_owner_account;
-      mode = #Set(#Map([(ICRC7.token_property_owner_principal,#Blob(Principal.toBlob(
-        if(thisItem < 6) testOwner
-        else testCanister)))]))
-    }]) else return assert(false);
+    ]) else return assert(false);
 
-    let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=thisItem;override=true;metadata=#Class(metadata);}]});
+    let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=if(thisItem < 6){?testOwnerAccount;} else {null};token_id=thisItem;override=true;metadata=#Class(metadata);}],false);
 
   };
 
@@ -472,7 +453,7 @@ test("Paginate through the list of tokens owned by an account", func() {
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
-test("Transfer a token to another account", func() {
+testsys<system>("Transfer a token to another account", func<system>() {
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   
   // Arrange: Set up the necessary variables for the transfer
@@ -483,20 +464,20 @@ test("Transfer a token to another account", func() {
   let token_id = 1;  // Assuming token with ID 1 exists
   let metadata = baseNFT;
   D.print("about to set" # debug_show(metadata));
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=metadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id;override=true;metadata=metadata;}],false);
   
   // Act: Transfer the token from the `fromAccount` to the `toAccount`
-  let transferArgs = {
-    subaccount = fromAccount.subaccount;
+  let transferArgs = [{
+    from_subaccount = fromAccount.subaccount;
     to = toAccount;
-    token_ids = [token_id];
+    token_id = token_id;
     memo = ?Text.encodeUtf8("Transfer memo");
     created_at_time = ?test_time;  // Replace with the current timestamp
-  };
+  }];
 
   D.print("about to transfer" # debug_show(transferArgs));
 
-  let #ok(#Ok(transferResults)) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
+  let #ok(transferResults) = icrc7.transfer_tokens<system>(tokenOwner, transferArgs) else return assert(false);
 
   D.print("transfer" # debug_show(transferResults));
 
@@ -506,8 +487,8 @@ test("Transfer a token to another account", func() {
   ); // "A single token transfer result is received"
 
   assert(
-    (switch(transferResults[0].transfer_result) {
-      case (#Ok(val)) val;
+    (switch(transferResults[0]) {
+      case (?#Ok(val)) val;
       case (_) return assert(false);
     }) >= 0
   ); // "Transfer result for the token with ID 1"
@@ -515,49 +496,49 @@ test("Transfer a token to another account", func() {
   // Query for the owner of the token after transfer
   let ?ownerResponse = icrc7.get_token_owner(token_id);
 
-    (switch(ownerResponse.account) {
-      case (?val) {
-        assert(val.owner == toAccount.owner);
-        assert(val.subaccount == toAccount.subaccount);
-      };
-      case (_) return assert(false);
-    });
+  assert(ownerResponse.owner == toAccount.owner);
+  assert(ownerResponse.subaccount == toAccount.subaccount);
+
     
   
 });
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Reject Transfer Attempt by Unauthorized User", func() {
+testsys<system>("Reject Transfer Attempt by Unauthorized User", func<system>() {
   // Arrange: Set up the ICRC7 instance, current test environment, and required variables
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
 
   let token_id = 1;  // Assuming token with ID 1 exists
   let metadata = baseNFT;
   D.print("about to set" # debug_show(metadata));
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=metadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id;override=true;metadata=metadata;}],false);
 
 
   let unauthorizedOwner = spender1;  // Replace with an unauthorized owner principal
-  let unauthorizedTransferArgs = {
-    subaccount = unauthorizedOwner.subaccount;
+  let unauthorizedTransferArgs = [{
+    from_subaccount = unauthorizedOwner.subaccount;
     to = spender2;
     memo = ?Text.encodeUtf8("Unauthorized transfer attempt");
-    token_ids = [1];  // Replace with appropriate token ID for a token that the unauthorized owner owns
+    token_id = 1;  // Replace with appropriate token ID for a token that the unauthorized owner owns
     created_at_time = ?init_time : ?Nat64;  // Replace with appropriate creation timestamp
-  };
+  }];
+
+  let transferResult = icrc7.transfer_tokens<system>(unauthorizedOwner.owner, unauthorizedTransferArgs);
+
+  D.print("transferResult" # debug_show(transferResult));
 
   // Act: Attempt to transfer a token by an unauthorized user
-  let #ok(#Ok(transferResponses)) = icrc7.transfer_tokens(unauthorizedOwner.owner, unauthorizedTransferArgs) else return assert(false);
+  let #ok(transferResponses) = transferResult else return assert(false);
 
   // Assert: Check if the transfer attempt is rejected
   assert(
     transferResponses.size() == 1
   ); //"Exactly one transfer response"
   assert(
-    (switch(transferResponses[0].transfer_result) {
-      case (#Err(err)) true;
-      case (#Ok(val)) false;
+    (switch(transferResponses[0]) {
+      case (?#Err(err)) true;
+      case (?#Ok(val)) false;
     })
   ); //"Transfer attempt is rejected"
 });
@@ -565,7 +546,7 @@ test("Reject Transfer Attempt by Unauthorized User", func() {
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
-test("Update the metadata for the ledger", func() {
+testsys<system>("Update the metadata for the ledger", func<system>() {
   // Arrange: Setup the ICRC7 instance with the initial state
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   let newSymbol = "anft_updated";
@@ -591,39 +572,37 @@ test("Update the metadata for the ledger", func() {
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Set metadata for a new NFT token", func() {
+testsys<system>("Set metadata for a new NFT token", func<system>() {
   // Arrange: Set up the ICRC7 instance and required parameters
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   let token_id = 11;  // Assuming a new token ID
   let metadata = baseNFT;  // Define the metadata for the new NFT
 
   // Act: Set the metadata for the new NFT token
-  let nftResult = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=metadata;}]});
+  let nftResult = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id;override=true;metadata=metadata;}],false);
 
   // Assert: Check if the NFT metadata is properly set and the state is updated
-  let ?retrievedMetadata = icrc7.get_token_info(token_id) else return assert(false);
+  let ?retrievedMetadata = icrc7.get_nft(token_id) else return assert(false);
   assert(
     // Ensure that the retrieved metadata matches the expected metadata
-    CandyTypesLib.eqShared(metadata, CandyTypesLib.shareCandy(retrievedMetadata))
+    CandyTypesLib.eqShared(metadata, CandyTypesLib.shareCandy(retrievedMetadata.meta))
   );
 });
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
-test("Update immutable and non-immutable NFT properties", func() {
+testsys<system>("Update immutable and non-immutable NFT properties", func<system>() {
   //Arrange: Set up the ICRC7 instance and required parameters
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   let token_id = 12;  // Assuming a token ID for testing
   let initialMetadata = #Class([
-    {immutable=false; name=ICRC7.token_property_owner_account; value = #Map([(ICRC7.token_property_owner_principal,#Blob(Principal.toBlob(testOwner)))]);},
     {name="test"; value=#Text("initialTestValue"); immutable = false},
     {name="test3"; value=#Text("immutableTestValue"); immutable = true}
   ]);  // Define the initial metadata for testing
 
 
   let targetMetadata = #Class([
-    {immutable=false; name=ICRC7.token_property_owner_account; value = #Map([(ICRC7.token_property_owner_principal,#Blob(Principal.toBlob(testOwner)))]);},
     {name="test"; value=#Text("updatedTestValue"); immutable = false},
     {name="test3"; value=#Text("immutableTestValue"); immutable = true}
   ]);  // Define the initial metadata for testing
@@ -632,22 +611,22 @@ test("Update immutable and non-immutable NFT properties", func() {
   let updateNonImmutable = {name="test3"; mode=#Set(#Text("updatedImmutableTestValue"));};  // Define an update for immutable property
   
   let mintedNftMetadata = initialMetadata;
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=mintedNftMetadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id;override=true;metadata=mintedNftMetadata;}],false);
 
   // Act and Assert: Attempt to update the immutable and non-immutable properties
-  let #ok(#Ok(resultNonImmutableUpdate)) = icrc7.update_nfts(testOwner, {memo=null; created_at_time=null; tokens=[{token_id=token_id;updates=[updateImmutable];}]}) else return assert(false);
+  let #ok(resultNonImmutableUpdate) = icrc7.update_nfts<system>(testOwner, [{memo=null; created_at_time=null; token_id=token_id;updates=[updateImmutable];}]) else return assert(false);
 
   D.print("resultNonImmutableUpdate" # debug_show(resultNonImmutableUpdate));
 
-  let resultImmutableUpdateCall = icrc7.update_nfts(testOwner, {memo=null; created_at_time=null; tokens=[{token_id=token_id;updates=[updateNonImmutable];}]});
+  let resultImmutableUpdateCall = icrc7.update_nfts<system>(testOwner, [{memo=null; created_at_time=null; token_id=token_id;updates=[updateNonImmutable];}]);
 
   D.print("resultImmutableUpdateCall" # debug_show(resultImmutableUpdateCall));
 
-  let #ok(#Ok(resultImmutableUpdate)) = icrc7.update_nfts(testOwner, {memo=null; created_at_time=null; tokens=[{token_id=token_id;updates=[updateNonImmutable];}]}) else return assert(false);
+  let #ok(resultImmutableUpdate) = icrc7.update_nfts<system>(testOwner, [{memo=null; created_at_time=null; token_id=token_id;updates=[updateNonImmutable];}]) else return assert(false);
 
-  let #Err(#GenericError(err)) = resultImmutableUpdate[0].result;
+  let #Err(#GenericError(anerror)) = resultImmutableUpdate[0] else return assert(false);
 
-  assert(err.error_code == 875);
+  assert(anerror.error_code == 875);
 
   D.print("resultImmutableUpdate" # debug_show(resultImmutableUpdate));
 
@@ -657,10 +636,10 @@ test("Update immutable and non-immutable NFT properties", func() {
   //);
 
   // Assert: Check if the updated metadata matches the expectation
-  let ?retrievedMetadata = icrc7.get_token_info(token_id) else return assert(false);
+  let ?retrievedMetadata = icrc7.get_nft(token_id) else return assert(false);
   assert(
     // Ensure the updated metadata matches the non-immutable update
-    CandyTypesLib.eq(CandyTypesLib.unshare(targetMetadata), retrievedMetadata)//,
+    CandyTypesLib.eq(CandyTypesLib.unshare(targetMetadata), retrievedMetadata.meta)//,
     //"Updated non-immutable property matches the expectations"
   );
 });
@@ -668,7 +647,7 @@ test("Update immutable and non-immutable NFT properties", func() {
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
-test("Attempt to transfer with duplicate or empty token ID arrays", func() {
+testsys<system>("Attempt to transfer with duplicate or empty token ID arrays", func<system>() {
   // Arrange: Set up the ICRC7 instance and approval parameters
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   let tokenOwner = {owner = testOwner; subaccount=null};  // Replace with appropriate owner principal
@@ -683,42 +662,55 @@ test("Attempt to transfer with duplicate or empty token ID arrays", func() {
     let #ok(metadata) = Properties.updatePropertiesShared(CandyConv.candySharedToProperties(baseNFT), [{
       name = "url";
       mode = #Set(#Text("https://example.com/" # Nat.toText(thisItem)))
-    },
-    {
-      name = ICRC7.token_property_owner_account;
-      mode = #Set(#Map([(ICRC7.token_property_owner_principal,#Blob(Principal.toBlob(
-        if(thisItem < 6) testOwner
-        else testCanister)))]))
     }]) else return assert(false);
 
-    let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=thisItem;override=true;metadata=#Class(metadata);}]});
+    let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner = ?testOwnerAccount;token_id=thisItem;override=true;metadata=#Class(metadata);}],false);
 
   };
 
 
   let emptyTokenIds = [];  // Empty token ID array
-  
-  let transferArgs = {
-    memo = ?Text.encodeUtf8("Approval memo");
-    expires_at = ?(test_time + one_minute): ?Nat64;  // Replace with appropriate expiry timestamp
-    created_at_time = ?test_time : ?Nat64;  // Replace with appropriate creation timestamp
-    subaccount = tokenOwner.subaccount;
-    to = tokenCanister;
-    token_ids = tokenIdsWithDuplicates
+  let tkids = Vec.new<ICRC7.TransferArg>();
+  for(i in tokenIdsWithDuplicates.vals()){
+    Vec.add<ICRC7.TransferArg>(tkids, {
+      memo = ?Text.encodeUtf8("Approval memo");
+      expires_at = ?(test_time + one_minute): ?Nat64;  // Replace with appropriate expiry timestamp
+      created_at_time = ?test_time : ?Nat64;  // Replace with appropriate creation timestamp
+      from_subaccount = tokenOwner.subaccount;
+      to = tokenCanister;
+      token_id = i
+    });
+  };
+  let transferArgs = Vec.toArray(tkids);
+
+  let tkids2 = Vec.new<ICRC7.TransferArg>();
+  for(i in tokenIdsWithDuplicates.vals()){
+    Vec.add<ICRC7.TransferArg>(tkids2, {
+      memo = ?Text.encodeUtf8("Approval memo");
+      expires_at = ?(test_time + one_minute): ?Nat64;  // Replace with appropriate expiry timestamp
+      created_at_time = ?test_time : ?Nat64;  // Replace with appropriate creation timestamp
+      from_subaccount = tokenOwner.subaccount;
+      to = tokenCanister;
+      token_id = i
+    } : ICRC7.TransferArg);
   };
 
-  let transferArgs2 = {
-    memo = ?Text.encodeUtf8("Approval memo");
-    expires_at = ?(test_time + one_minute): ?Nat64;  // Replace with appropriate expiry timestamp
-    created_at_time = ?test_time : ?Nat64;  // Replace with appropriate creation timestamp
-    subaccount = tokenOwner.subaccount;
-    to = tokenCanister;
-    token_ids = emptyTokenIds
-  };
+  let transferArgs2 = Vec.toArray(tkids2);
 
   // Act: Attempt approval requests with duplicate and empty token ID arrays
-  let #err(approvalResponsesWithDuplicates) = icrc7.transfer_tokens(testOwner, transferArgs) else return assert(false);
-  let #err(approvalResponsesEmpty) = icrc7.transfer_tokens(testOwner, transferArgs2) else return assert(false);
+  let #ok(result) = icrc7.transfer_tokens(testOwner, transferArgs);
+  let ?#Err(approvalResponsesWithDuplicates) = result[5]  else {
+    D.print("approvalResponsesWithDuplicates" # debug_show(result));
+    return assert(false);
+  }; 
+
+  let #ok(result2) = icrc7.transfer_tokens(testOwner, transferArgs2);
+  let ?#Err(approvalResponsesWithDuplicates2) = result2[5]  else {
+    D.print("approvalResponsesWithDuplicates2" # debug_show(result));
+    return assert(false);
+  }; 
+
+
  
   /* let approvalResponsesWithDuplicates = icrc7.approve_transfers(base_environment, tokenOwner, tokenIdsWithDuplicates, approvalInfo) else return assert(false);
   let approvalResponsesEmpty = icrc7.approve_transfers(base_environment, tokenOwner, emptyTokenIds, approvalInfo) else return assert(false); */
@@ -729,7 +721,7 @@ test("Attempt to transfer with duplicate or empty token ID arrays", func() {
 
 icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("Test DeDupe on transfer", func() {
+testsys<system>("Test DeDupe on transfer", func<system>() {
   let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
   
   // Arrange: Set up the necessary variables for the transfer
@@ -740,39 +732,39 @@ test("Test DeDupe on transfer", func() {
   let token_id = 1;  // Assuming token with ID 1 exists
   let metadata = baseNFT;
   D.print("about to set" # debug_show(metadata));
-  let nft = icrc7.set_nfts(testOwner, {memo=null;created_at_time=null;tokens=[{token_id=token_id;override=true;metadata=metadata;}]});
+  let nft = icrc7.set_nfts<system>(testOwner, [{memo=null;created_at_time=null;owner=?testOwnerAccount;token_id=token_id;override=true;metadata=metadata;}],false);
   
   // Act: Transfer the token from the `fromAccount` to the `toAccount`
-  let transferArgs = {
-    subaccount = fromAccount.subaccount;
+  let transferArgs = [{
+    from_subaccount = fromAccount.subaccount;
     to = toAccount;
-    token_ids = [token_id];
+    token_id = token_id;
     memo = ?Text.encodeUtf8("Transfer memo");
     created_at_time = ?test_time;  // Replace with the current timestamp
-  };
+  }];
 
   D.print("about to transfer" # debug_show(transferArgs));
 
-  let #ok(#Ok(transferResults)) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
+  let #ok(transferResults) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
 
   D.print("transfer" # debug_show(transferResults));
 
-  let transferArgs2 = {
-    subaccount = toAccount.subaccount;
+  let transferArgs2 = [{
+    from_subaccount = toAccount.subaccount;
     to = fromAccount;
-    token_ids = [token_id];
+    token_id = token_id;
     memo = ?Text.encodeUtf8("Transfer memo");
     created_at_time = ?test_time;  // Replace with the current timestamp
-  };
+  }];
 
   //send back
-  let #ok(#Ok(transferResults2)) = icrc7.transfer_tokens(toAccount.owner, transferArgs2) else return assert(false);
+  let #ok(transferResults2) = icrc7.transfer_tokens(toAccount.owner, transferArgs2) else return assert(false);
 
   D.print("transfer back" # debug_show(transferResults2));
 
 
   //replay back
-  let #ok(#Ok(transferResults3)) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
+  let #ok(transferResults3) = icrc7.transfer_tokens(tokenOwner, transferArgs) else return assert(false);
 
   D.print("duplicate " # debug_show(transferResults3));
 
@@ -787,8 +779,10 @@ test("Test DeDupe on transfer", func() {
     transferResults2.size() == 1
   ); // "A single token transfer result is received"
 
+  let ?errfound = transferResults3[0];
+
   assert(
-    (switch(transferResults3[0].transfer_result) {
+    (switch(errfound) {
       case (#Err(val)){
         switch(val){
           case(#Duplicate(val)) val.duplicate_of;
@@ -802,18 +796,15 @@ test("Test DeDupe on transfer", func() {
   // Query for the owner of the token after transfer
   let ?ownerResponse = icrc7.get_token_owner(token_id);
 
-    (switch(ownerResponse.account) {
-      case (?val) {
-        assert(val.owner == fromAccount.owner);
-        assert(val.subaccount == fromAccount.subaccount);
-      };
-      case (_) return assert(false);
-    });
+
+  assert(ownerResponse.owner == fromAccount.owner);
+  assert(ownerResponse.subaccount == fromAccount.subaccount);
+    
 
   //advance time more than two minutes
     ignore set_time(get_time64() + (1_000_000_000 * 60 * 2) + 1);
 
-    let #ok(#Ok(transferResults4)) = icrc7.transfer_tokens(tokenOwner, {transferArgs with created_at_time = ?get_time64()}) else return assert(false);
+    let #ok(transferResults4) = icrc7.transfer_tokens<system>(tokenOwner, [{transferArgs[0] with created_at_time = ?get_time64()}]) else return assert(false);
 
     D.print("unduped " # debug_show(transferResults4));
 
@@ -824,13 +815,9 @@ test("Test DeDupe on transfer", func() {
 
   let ?ownerResponse2 = icrc7.get_token_owner(token_id);
 
-    (switch(ownerResponse2.account) {
-      case (?val) {
-        assert(val.owner == toAccount.owner);
-        assert(val.subaccount == toAccount.subaccount);
-      };
-      case (_) return assert(false);
-    });
 
-  
+  assert(ownerResponse2.owner == toAccount.owner);
+  assert(ownerResponse2.subaccount == toAccount.subaccount);
+
+   
 });

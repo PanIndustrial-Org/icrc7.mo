@@ -1,13 +1,13 @@
 [package]
 name = "icrc7-mo"
-version = "0.3.1"
+version = "0.4.0"
 description = "icrc7 for motoko"
 repository = "https://github.com/PanIndustrial-Org/icrc7.mo"
 keywords = [ "nft" ]
 license = "MIT"
 
 [dependencies]
-base = "https://github.com/dfinity/motoko-base#moc-0.10.0@a15ca7cd26335505e103288654f480a44463d844"
+base = "0.11.1"
 "base-0.7.3" = "https://github.com/dfinity/motoko-base#moc-0.7.3@aafcdee0c8328087aeed506e64aa2ff4ed329b47"
 map9 = "https://github.com/ZhenyaUsenko/motoko-hash-map#v9.0.1@10b68f6ea8df5e72dfa4c07a50c8bb60a916c233"
 candy_0_3_0 = "https://github.com/icdevs/candy_library#v0.3.0@907a4e7363aac6c6a4e114ebc73e3d3f21e138af"
@@ -18,6 +18,6 @@ vector = "0.2.0"
 rep-indy-hash = "0.1.1"
 
 [dev-dependencies]
-test = "1.1.1"
-fuzz = "0.1.2"
+test = "1.2.0"
+fuzz = "0.2.1"
 matchers = "https://github.com/kritzcreek/motoko-matchers#v1.3.0@3dac8a071b69e4e651b25a7d9683fe831eb7cffd"

@@ -22,6 +22,7 @@ module {
     max_memo_size : ?Nat;
     allow_transfers: ?Bool;
     permitted_drift : ?Nat;
+    tx_window : ?Nat;
     burn_account : ?v0_1_0.Account;
     supported_standards : ?v0_1_0.SupportedStandards;
   };

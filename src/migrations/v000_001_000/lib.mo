@@ -57,6 +57,10 @@ module {
             case(null) v0_1_0.default_permitted_drift;
             case(?val) val;
           };
+          tx_window = switch(val.tx_window){
+            case(null) v0_1_0.default_tx_window;
+            case(?val) val;
+          };
           allow_transfers = switch(val.allow_transfers){
             case(null) v0_1_0.default_allow_transfers;
             case(?val) val;
@@ -80,6 +84,7 @@ module {
           default_take_value = v0_1_0.default_default_take_value;
           max_take_value = v0_1_0.default_max_take_value;
           max_memo_size = v0_1_0.default_max_take_value;
+          tx_window = v0_1_0.default_tx_window;
           permitted_drift = v0_1_0.default_permitted_drift;
           allow_transfers = v0_1_0.default_allow_transfers;
           burn_account = null;
@@ -102,24 +107,19 @@ module {
         var max_take_value = ledger_info.max_take_value;
         var max_memo_size = ledger_info.max_memo_size;
         var permitted_drift = ledger_info.permitted_drift;
+        var tx_window = ledger_info.tx_window;
         var allow_transfers = ledger_info.allow_transfers;
         var burn_account = ledger_info.burn_account
       };
 
       var owner = owner;
       nfts :  Map.Map<Nat, NFT> = Map.new<Nat, NFT>();
+      owners : Map.Map<Account, Nat> = Map.new<Account, Nat>();
       ledger : Vec.Vector<Value> = Vec.new();
       indexes = {
         nft_to_owner : Map.Map<Nat, Account> = Map.new<Nat, Account>();
         owner_to_nfts : Map.Map<Account, Set.Set<Nat>> = Map.new<Account, Set.Set<Nat>>();
         recent_transactions: Map.Map<Blob, (Int, Nat)> = Map.new<Blob, (Int, Nat)>();
-      };
-      constants = {
-        token_properties = {
-          owner_account = MigrationTypes.Current.token_property_owner_account;
-          owner_principal = MigrationTypes.Current.token_property_owner_principal;
-          owner_subaccount = MigrationTypes.Current.token_property_owner_subaccount;
-        };
       };
       var supported_standards = set_supported_standards(args);
     };

@@ -64,18 +64,15 @@ module {
   /// default 2 Minutes
   public let default_permitted_drift = 120000000000; //1_000_000_000 * 60 * 2; //two Minutes
 
+  /// default transactoin window
+  public let default_tx_window = 86400000000000; //one minute * 60*24; //two Minutes
+
   /// default true
   public let default_allow_transfers = true; 
 
   //responses
 
-  //todo: outstanding fix
-  public type OwnerOfResponse = {
-    token_id: Nat;
-    account: ?Account;
-  };
-
-  public type OwnerOfResponses = [OwnerOfResponse];
+  
 
   public type TokenID = Nat;
 
@@ -93,6 +90,7 @@ module {
     var max_take_value: Nat;
     var max_memo_size : Nat;
     var permitted_drift : Nat;
+    var tx_window : Nat;
     var allow_transfers : Bool;
     var burn_account : ?Account
   };
@@ -109,11 +107,15 @@ module {
     max_take_value: Nat;
     max_memo_size : Nat;
     permitted_drift: Nat;
+    tx_window: Nat;
     allow_transfers: Bool;
     burn_account: ?Account
   };
 
-  public type NFT = CandyTypes.Candy;
+  public type NFT = {
+    meta: CandyTypes.Candy;
+    var owner: ?Account;
+  };
   public type NFTInput = CandyTypes.CandyShared;
   public type NFTShared = Value;
   public type NFTMap = [(Text, Value)];
@@ -123,10 +125,10 @@ module {
     message : Text;
   };
 
-  public type TransferArgs = {
-    subaccount : ?Blob;
+  public type TransferArg = {
+    from_subaccount : ?Blob;
     to : Account;
-    token_ids : [Nat];
+    token_id : Nat;
     // type: leave open for now
     memo : ?Blob;
     created_at_time : ?Nat64;
@@ -140,34 +142,25 @@ module {
     created_at_time : ?Nat64;
   };
 
-  public type TransferBatchError = {
-    #TooOld;
-    #InvalidRecipient;
-    #CreatedInFuture : { ledger_time: Nat64 };
-    #GenericError : { error_code : Nat; message : Text };
-  };
 
-  public type TransferResponseItem = {
-    token_id : Nat;
-    transfer_result :{
-      #Ok: Nat;
-      #Err: TransferError
-    };
-  };
 
-  public type TransferResponse = {
-    #Ok :[TransferResponseItem];
-    #Err : TransferBatchError;
+  public type TransferResult = {
+    #Ok : Nat;
+    #Err : TransferError;
   };
 
   public type TransferError = {
     #NonExistingTokenId;
+    #TooOld;
+    #InvalidRecipient;
+    #CreatedInFuture : { ledger_time: Nat64 };
     #Unauthorized;
     #Duplicate : { duplicate_of : Nat };
     #GenericError : { 
       error_code : Nat; 
       message : Text 
     };
+    #GenericBatchError : { error_code : Nat; message : Text };
   };
 
   public type UpdateLedgerInfoRequest = {
@@ -182,23 +175,30 @@ module {
     #MaxTakeValue : Nat;
     #MaxMemoSize : Nat;
     #PermittedDrift : Nat;
+    #TxWindow : Nat;
     #AllowTransfers : Bool;
     #UpdateOwner : Principal;
     #BurnAccount : ?Account
   };
 
-  public type SetNFTRequest = {
-    memo: ?Blob;
-    created_at_time : ?Nat64;
-    tokens : [SetNFTItemRequest];
-  };
+  public type SetNFTRequest =[SetNFTItemRequest];
 
   public type MintNotification = {
     memo: ?Blob;
     from: ?Account;
     to: Account;
     created_at_time : ?Nat64;
-    hash : Blob;
+    meta : CandyTypes.CandyShared;
+    token_id : Nat;
+    new_token : Bool;
+  };
+
+  public type UpdateNotification = {
+    memo: ?Blob;
+    from: Account;
+    created_at_time : ?Nat64;
+    original : CandyTypes.Candy;
+    update :  CandyTypes.Candy;
     token_id : Nat;
     new_token : Bool;
   };
@@ -206,21 +206,15 @@ module {
   public type SetNFTItemRequest = {
     token_id: Nat;
     metadata: NFTInput;
+    owner: ?Account;
     override: Bool;
+    memo: ?Blob;
+    created_at_time : ?Nat64;
   };
 
-  public type SetNFTBatchResponse = {
-    #Ok: [SetNFTItemResponse];
-    #Err: SetNFTBatchError;
-  };
-
-  public type SetNFTItemResponse = {
-    token_id: Nat;
-    result: SetNFTResult;
-  };
 
   public type SetNFTResult =  {
-    #Ok: Nat;
+    #Ok: ?Nat;
     #Err: SetNFTError;
     #GenericError : { error_code : Nat; message : Text };
   };
@@ -229,14 +223,10 @@ module {
     #NonExistingTokenId;
     #TokenExists;
     #GenericError : { error_code : Nat; message : Text };
-  
-  };
-
-  public type SetNFTBatchError = {
     #TooOld;
     #CreatedInFuture : { ledger_time: Nat64 };
-    #GenericError : { error_code : Nat; message : Text };
   };
+
 
   public type BurnNFTRequest = {
     memo: ?Blob;
@@ -280,25 +270,13 @@ module {
     #GenericError : { error_code : Nat; message : Text };
   };
 
-  public type UpdateNFTRequest = {
-    memo: ?Blob;
-    created_at_time : ?Nat64;
-    tokens : [UpdateNFTItemRequest];
-  };
+  public type UpdateNFTRequest = [UpdateNFTItemRequest];
 
   public type UpdateNFTItemRequest = {
+    memo: ?Blob;
+    created_at_time : ?Nat64;
     token_id: Nat;
     updates: [CandyTypesLib.Update]
-  };
-
-  public type UpdateNFTBatchResponse = {
-    #Ok: [UpdateNFTItemResponse];
-    #Err: UpdateNFTBatchError;
-  };
-
-  public type UpdateNFTItemResponse = {
-    token_id: Nat;
-    result: UpdateNFTResult;
   };
 
   public type UpdateNFTResult =  {
@@ -307,13 +285,9 @@ module {
   };
 
   public type UpdateNFTError = {
-    #NonExistingTokenId;
-    #GenericError : { error_code : Nat; message : Text };
-  };
-
-  public type UpdateNFTBatchError = {
     #TooOld;
     #CreatedInFuture : { ledger_time: Nat64 };
+    #NonExistingTokenId;
     #GenericError : { error_code : Nat; message : Text };
   };
 
@@ -333,7 +307,7 @@ module {
   let nullBlob  : Blob = "\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00\00";
 
   public func account_eq(a : Account, b : Account) : Bool{
-    D.print("testing account " # debug_show((a,b)));
+    //D.print("testing account " # debug_show((a,b)));
     if(a.owner != b.owner) return false;
     switch(a.subaccount, b.subaccount){
       case(null, null){};
@@ -371,38 +345,39 @@ module {
     } else return Principal.compare(a.owner, b.owner);
   };
 
+  public func validAccount(a : Account) : Bool{
+    //D.print("testing account " # debug_show((a,b)));
+    switch(a.subaccount){
+      case(null){return true};
+      case(?vala){
+        (vala.size() == 32);
+      };
+    };
+  };
+
   public let ahash = (account_hash32, account_eq);
 
-  public let token_property_owner_account = "icrc7:owner_account";
-  public let token_property_owner_principal = "icrc7:owner_principal";
-  public let token_property_owner_subaccount = "icrc7:owner_subaccount";
 
   public type Environment = {
     canister : () -> Principal;
     get_time : () -> Int;
     refresh_state: () -> State;
-    add_ledger_transaction: ?((trx: Transaction, trxtop: ?Transaction) -> Nat);
-    can_transfer : ?((trx: Transaction, trxtop: ?Transaction, notification: TransferNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: TransferNotification), Text>);
-    can_mint : ?((trx: Transaction, trxtop: ?Transaction, notification: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: MintNotification), Text>);
-    can_burn : ?((trx: Transaction, trxtop: ?Transaction, notification: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: BurnNotification), Text>);
+    add_ledger_transaction: ?(<system>(trx: Transaction, trxtop: ?Transaction) -> Nat);
+    can_transfer : ?(<system>((trx: Transaction, trxtop: ?Transaction, notification: TransferNotification)) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: TransferNotification), Text>);
+    can_mint : ?(<system>(trx: Transaction, trxtop: ?Transaction, notification: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: MintNotification), Text>);
+    can_update : ?(<system>(trx: Transaction, trxtop: ?Transaction, notification: UpdateNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: UpdateNotification), Text>);
+    can_burn : ?(<system>(trx: Transaction, trxtop: ?Transaction, notification: BurnNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: BurnNotification), Text>);
   };
 
-  public type TokenTransferredListener = (TransferNotification, trxid: Nat) -> ();
-  public type TokenBurnListener = (BurnNotification, trxid: Nat) -> ();
-  public type TokenMintListener = (MintNotification, trxid: Nat) -> ();
+  public type TokenTransferredListener = <system>(TransferNotification, trxid: Nat) -> ();
+  public type TokenBurnListener = <system>(BurnNotification, trxid: Nat) -> ();
+  public type TokenMintListener = <system>(MintNotification, trxid: Nat) -> ();
+  public type TokenUpdateListener = <system>(UpdateNotification, trxid: Nat) -> ();
 
   public type Indexes = {
     nft_to_owner : Map.Map<Nat, Account>;
     owner_to_nfts : Map.Map<Account, Set.Set<Nat>>;
     recent_transactions : Map.Map<Blob, (Int,Nat)>;
-  };
-
-  public type Constants = {
-      token_properties: {
-        owner_account: Text;
-        owner_principal: Text;
-        owner_subaccount: Text;
-      };
   };
 
   public type State = {
@@ -412,7 +387,6 @@ module {
     var owner : Principal;
     var supported_standards : SupportedStandards;
     indexes: Indexes;
-    constants : Constants;
   };
 
   public type Stats = {
@@ -426,6 +400,5 @@ module {
       owner_to_nfts_count :Nat;
       recent_transactions_count :Nat;
     };
-    constants : Constants;
   };
 };
