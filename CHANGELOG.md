@@ -1,5 +1,9 @@
 #Changelog
 
+## v0.4.0
+
+- Breaking change: Owner is no longer handled in the metadata
+- Updated to final ICRC7 spec.
 
 ## v0.2.1
 
