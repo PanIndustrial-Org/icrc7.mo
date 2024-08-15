@@ -499,6 +499,14 @@ testsys<system>("Transfer a token to another account", func<system>() {
   assert(ownerResponse.owner == toAccount.owner);
   assert(ownerResponse.subaccount == toAccount.subaccount);
 
+   let tokens_of = icrc7.tokens_of(toAccount, null, null);
+
+  assert(tokens_of[0] == 1);
+
+  let tokens_of2 = icrc7.tokens_of(testOwnerAccount, null, null);
+
+  assert(tokens_of2.size() == 0);
+
     
   
 });

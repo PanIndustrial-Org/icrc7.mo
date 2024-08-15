@@ -894,6 +894,16 @@ module {
     ///     Bool - A boolean value indicating if the owner was successfully unindexed from the token.
     private func unindex_owner(token_id : Nat, account : Account) : Bool {
 
+      switch(Map.get(state.indexes.nft_to_owner, Map.nhash, token_id)){
+        case(null){}; //already reindexed
+        case(?val){
+          if(account_eq(val, account)){
+            ignore Map.remove(state.indexes.nft_to_owner, Map.nhash, token_id);
+          };
+        };
+      };
+      
+
       switch (Map.get(state.indexes.owner_to_nfts, ahash, account)) {
         case (null) { return false };
         case (?val) {
@@ -1002,7 +1012,7 @@ module {
         Vec.add(trxtop, ("ts", #Nat(Int.abs(environment.get_time()))));
 
         Vec.add(trxtop, ("from", accountToValue(current_owner)));
-        ignore unindex_owner(thisItem, current_owner);
+        
 
         let to = switch (state.ledger_info.burn_account) {
           case (null) { null };
@@ -1881,6 +1891,25 @@ module {
       return #ok(nft_value);
     };
 
+    /// Indexes the owner of a token in the owner-to-token index.
+    /// Should only be used in emergencies or if indexes become corrupted.
+    public func maintenance_reindex_owners() : () {
+
+    Map.clear(state.indexes.nft_to_owner);
+    Map.clear(state.indexes.owner_to_nfts);
+    label proc for (thisItem in Map.entries(state.nfts)) {
+      let nft = thisItem.1;
+      let owner = switch (nft.owner) {
+        case (null) { {owner = environment.canister(); subaccount = null} };
+        case (?val) val;
+      };
+
+      ignore index_owner(thisItem.0, owner); 
+    };
   };
+
+  };
+
+  
 
 };

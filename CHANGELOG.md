@@ -1,5 +1,11 @@
 #Changelog
 
+## v0.4.1
+
+- Fix indexing bug https://github.com/PanIndustrial-Org/icrc_nft.mo/issues/3
+- Add tests for tokens_of
+- Add maintenance method for reindexing owners
+
 ## v0.4.0
 
 - Breaking change: Owner is no longer handled in the metadata
