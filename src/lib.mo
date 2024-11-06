@@ -13,12 +13,14 @@ import Vec "mo:vector";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
 import Blob "mo:base/Blob";
+import Time "mo:base/Time";
 import RepIndy "mo:rep-indy-hash";
 
 import CandyConversion "mo:candy_0_3_0/conversion";
 import CandyProperties "mo:candy_0_3_0/properties";
 import CandyWorkspace "mo:candy_0_3_0/workspace";
 import ServiceLib "service";
+import ClassPlusLib "../../../../ICDevs/projects/ClassPlus/src/";
 
 module {
 
@@ -51,6 +53,7 @@ module {
   public type State = MigrationTypes.State;
   public type Stats = MigrationTypes.Current.Stats;
   public type InitArgs = MigrationTypes.Args;
+  public type InitArgList = MigrationTypes.ArgList;
   public type Error = MigrationTypes.Current.Error;
   public type Account = MigrationTypes.Current.Account;
   public type LedgerInfo = MigrationTypes.Current.LedgerInfo;
@@ -102,6 +105,32 @@ module {
 
   public let Service = ServiceLib;
 
+  public type ClassPlus = ClassPlusLib.ClassPlus<
+    ICRC7, 
+    State,
+    InitArgs,
+    Environment>;
+
+  public func ClassPlusGetter(item: ?ClassPlus) : () -> ICRC7 {
+    ClassPlusLib.ClassPlusGetter<ICRC7, State, InitArgs, Environment>(item);
+  };
+
+  public func Init<system>(config : {
+      manager: ClassPlusLib.ClassPlusInitializationManager;
+      initialState: State;
+      args : ?InitArgList;
+      pullEnvironment : ?(() -> Environment);
+      onInitialize: ?(ICRC7 -> async*());
+      onStorageChange : ((State) ->())
+    }) :()-> ICRC7{
+
+      ClassPlusLib.ClassPlus<system,
+        ICRC7, 
+        State,
+        InitArgList,
+        Environment>({config with constructor = ICRC7}).get;
+    };
+
   /// The `ICRC7` class encapsulates methods and state necessary to manage a collection
   /// of NFTs (non-fungible tokens), supporting operations like query, transfer, and
   /// updating of NFT data according to the ICRC-7 standard.
@@ -111,18 +140,25 @@ module {
   ///      `stored: ?State` - The initial state stored for the NFT collection or null.
   ///      `canister: Principal` - The Principal identifier of the canister managing the NFT collection.
   ///      `environment: Environment` - The environment context for the ledger.
-  public class ICRC7(stored : ?State, canister : Principal, environment : Environment) {
+  public class ICRC7(stored : ?State, caller: Principal, canister : Principal, args: InitArgs, _environment : ?Environment, storageChange : (State) -> ()) {
+
+    public let environment = switch (_environment) {
+      case (?val) val;
+      case (null) D.trap("No Environment Set");
+    };
 
     var state : CurrentState = switch (stored) {
       case (null) {
-        let #v0_1_0(#data(foundState)) = init(initialState(), currentStateVersion, null, canister);
+        let #v0_1_0(#data(foundState)) = init(initialState(), currentStateVersion, args, caller, canister);
         foundState;
       };
       case (?val) {
-        let #v0_1_0(#data(foundState)) = init(val, currentStateVersion, null, canister);
+        let #v0_1_0(#data(foundState)) = init(val, currentStateVersion, args, caller, canister);
         foundState;
       };
     };
+
+    storageChange(#v0_1_0(#data(state)));
 
     private let token_transferred_listeners = Vec.new<(Text, TokenTransferredListener)>();
     private let token_mint_listeners = Vec.new<(Text, TokenMintListener)>();
@@ -483,7 +519,7 @@ module {
       switch(nft_value.owner){
         case(null){
           return #ok({
-            owner = environment.canister();
+            owner = canister;
             subaccount = null;
           });
         };
@@ -759,10 +795,10 @@ module {
       switch (val) {
         case (null) return #ok(null);
         case (?val) {
-          if (Nat64.toNat(val) > environment.get_time() + state.ledger_info.permitted_drift) {
-            return #Err(#InTheFuture(Nat64.fromNat(Int.abs(environment.get_time()))));
+          if (Nat64.toNat(val) > Time.now() + state.ledger_info.permitted_drift) {
+            return #Err(#InTheFuture(Nat64.fromNat(Int.abs(Time.now()))));
           };
-          if (Nat64.toNat(val) < environment.get_time() - state.ledger_info.permitted_drift) {
+          if (Nat64.toNat(val) < Time.now() - state.ledger_info.permitted_drift) {
             return #Err(#TooOld);
           };
           return #ok(?val);
@@ -952,7 +988,7 @@ module {
       switch (testCreatedAt(request.created_at_time, environment)) {
         case (#ok(val)) {};
         case (#Err(#TooOld)) return #ok(#Err(#TooOld));
-        case (#Err(#InTheFuture(val))) return #ok(#Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(environment.get_time())) })));
+        case (#Err(#InTheFuture(val))) return #ok(#Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(Time.now())) })));
       };
 
       //do the burn
@@ -976,7 +1012,7 @@ module {
             switch (val.owner) {
               case (null) {
                 {
-                  owner = environment.canister();
+                  owner = canister;
                   subaccount = null;
                 };
               };
@@ -1009,7 +1045,7 @@ module {
         };
 
         Vec.add(trx, ("tid", #Nat(thisItem)));
-        Vec.add(trxtop, ("ts", #Nat(Int.abs(environment.get_time()))));
+        Vec.add(trxtop, ("ts", #Nat(Int.abs(Time.now()))));
 
         Vec.add(trxtop, ("from", accountToValue(current_owner)));
         
@@ -1180,7 +1216,7 @@ module {
           case (#Err(#InTheFuture(val))){
             Vec.add(
               results,
-              #Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(environment.get_time()))})),
+              #Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(Time.now()))})),
             );
             continue proc;
           };
@@ -1266,7 +1302,7 @@ module {
           };
 
           Vec.add(trx, ("tid", #Nat(thisItem.token_id)));
-          Vec.add(trxtop, ("ts", #Nat(Int.abs(environment.get_time()))));
+          Vec.add(trxtop, ("ts", #Nat(Int.abs(Time.now()))));
 
           if(bMinting){
             Vec.add(trxtop, ("btype", #Text("7mint")));
@@ -1403,7 +1439,7 @@ module {
             continue proc;
           };
           case (#Err(#InTheFuture(val))){
-            Vec.add(results, #Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(environment.get_time()))})));
+            Vec.add(results, #Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(Time.now()))})));
             continue proc;
           };
         };
@@ -1445,7 +1481,7 @@ module {
                 };
 
                 Vec.add(trx, ("tid", #Nat(thisItem.token_id)));
-                Vec.add(trxtop, ("ts", #Nat(Int.abs(environment.get_time()))));
+                Vec.add(trxtop, ("ts", #Nat(Int.abs(Time.now()))));
 
                 Vec.add(trxtop, ("btype", #Text("7update")));
                 Vec.add(trx, ("op", #Text("7update")));
@@ -1550,7 +1586,7 @@ module {
     /// Removes expired recent transactions from the index based on the permitted drift.
     public func cleanUpRecents() : () {
       label clean for (thisItem in Map.entries(state.indexes.recent_transactions)) {
-        if (thisItem.1.0 + state.ledger_info.permitted_drift < environment.get_time()) {
+        if (thisItem.1.0 + state.ledger_info.permitted_drift < Time.now()) {
           //we can remove this item;
           ignore Map.remove(state.indexes.recent_transactions, Map.bhash, thisItem.0);
         } else {
@@ -1644,7 +1680,7 @@ module {
           case (#Err(#InTheFuture(val))){
             Vec.add(
               results,
-              ?#Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(environment.get_time())) })),
+              ?#Err(#CreatedInFuture({ ledger_time = Nat64.fromNat(Int.abs(Time.now())) })),
             );
             continue proc;
           };
@@ -1668,7 +1704,7 @@ module {
     public func find_dupe(trxhash : Blob) : ?Nat {
       switch (Map.get<Blob, (Int, Nat)>(state.indexes.recent_transactions, Map.bhash, trxhash)) {
         case (?found) {
-          if (found.0 + state.ledger_info.permitted_drift + state.ledger_info.tx_window > environment.get_time()) {
+          if (found.0 + state.ledger_info.permitted_drift + state.ledger_info.tx_window > Time.now()) {
             return ?found.1;
           };
         };
@@ -1760,7 +1796,7 @@ module {
         case (?val) val<system>(#Map(Vec.toArray(trx)), ? #Map(Vec.toArray(trxtop)));
       };
 
-      ignore Map.put<Blob, (Int, Nat)>(state.indexes.recent_transactions, Map.bhash, trxhash, (environment.get_time(), transaction_id));
+      ignore Map.put<Blob, (Int, Nat)>(state.indexes.recent_transactions, Map.bhash, trxhash, (Time.now(), transaction_id));
 
       cleanUpRecents();
 
@@ -1844,7 +1880,7 @@ module {
         };
 
         Vec.add(trx, ("tid", #Nat(transferArg.token_id)));
-        Vec.add(trxtop, ("ts", #Nat(Int.abs(environment.get_time()))));
+        Vec.add(trxtop, ("ts", #Nat(Int.abs(Time.now()))));
 
         Vec.add(trx, ("op", #Text("7xfer")));
 
@@ -1900,7 +1936,7 @@ module {
     label proc for (thisItem in Map.entries(state.nfts)) {
       let nft = thisItem.1;
       let owner = switch (nft.owner) {
-        case (null) { {owner = environment.canister(); subaccount = null} };
+        case (null) { {owner = canister; subaccount = null} };
         case (?val) val;
       };
 

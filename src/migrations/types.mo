@@ -8,7 +8,7 @@ module {
   // instead of importing it from migration folder itself
   public let Current = v0_1_0;
 
-  public type Args = ?{
+  public type ArgList = {
     deployer: Principal;
     symbol  : ?Text;
     name    : ?Text;
@@ -26,6 +26,8 @@ module {
     burn_account : ?v0_1_0.Account;
     supported_standards : ?v0_1_0.SupportedStandards;
   };
+
+  public type Args = ?ArgList;
 
   public type State = {
     #v0_0_0: {#id; #data};
