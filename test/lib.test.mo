@@ -91,7 +91,7 @@ func get_icrc7_state(): ICRC7.CurrentState{
   icrc7_state_current;
 }; 
 
-func getEnviornment() : ICRC7.Environment{
+func getEnvironment() : ICRC7.Environment{
   return base_environment;
 };
 let base_environment= {
@@ -120,7 +120,7 @@ func getICRC7Class<system>(args: ICRC7.InitArgs) : ICRC7.ICRC7 {
     manager = manager;
     initialState = ICRC7.initialState();
     args = args;
-    pullEnvironment =  ?getEnviornment;
+    pullEnvironment =  ?getEnvironment;
     onInitialize = ?onInitialize;
     onStorageChange = storageChange
   });
