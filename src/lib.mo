@@ -20,7 +20,7 @@ import CandyConversion "mo:candy_0_3_0/conversion";
 import CandyProperties "mo:candy_0_3_0/properties";
 import CandyWorkspace "mo:candy_0_3_0/workspace";
 import ServiceLib "service";
-import ClassPlusLib "../../../../ICDevs/projects/ClassPlus/src/";
+import ClassPlusLib "mo:class-plus";
 
 module {
 
