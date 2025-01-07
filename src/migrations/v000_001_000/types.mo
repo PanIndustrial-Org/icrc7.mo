@@ -359,9 +359,6 @@ module {
 
 
   public type Environment = {
-    canister : () -> Principal;
-    get_time : () -> Int;
-    refresh_state: () -> State;
     add_ledger_transaction: ?(<system>(trx: Transaction, trxtop: ?Transaction) -> Nat);
     can_transfer : ?(<system>((trx: Transaction, trxtop: ?Transaction, notification: TransferNotification)) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: TransferNotification), Text>);
     can_mint : ?(<system>(trx: Transaction, trxtop: ?Transaction, notification: MintNotification) -> Result.Result<(trx: Transaction, trxtop: ?Transaction, notification: MintNotification), Text>);

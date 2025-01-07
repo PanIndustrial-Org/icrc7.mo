@@ -16,6 +16,9 @@ import D "mo:base/Debug";
 import Debug "mo:base/Debug";
 import {test; testsys} "mo:test";
 import Vec "mo:vector";
+import Class "mo:vector/Class";
+import Time "mo:base/Time";
+import ClassPlusLib "../../../../ICDevs/projects/ClassPlus/src/";
 
 let testOwner = Principal.fromText("exoh6-2xmej-lux3z-phpkn-2i3sb-cvzfx-totbl-nzfcy-fxi7s-xiutq-mae");
 let testOwnerAccount = {owner = testOwner; subaccount = null};
@@ -58,7 +61,7 @@ func get_canister() : Principal{
   return testCanister;
 };
 
-let init_time = 1700925876000000000 : Nat64;
+let init_time = Nat64.fromNat(Int.abs(Time.now())); //1700925876000000000 : Nat64;
 var test_time = init_time : Nat64;
 let one_day = 86_400_000_000_000: Nat64;
 let one_hour = one_day/24: Nat64;
@@ -72,21 +75,25 @@ func get_time() : Int{
 func get_time64() : Nat64{
   return test_time;
 };
-
+/* 
 func set_time(x : Nat64) : Nat64{
   test_time += x;
   return test_time;
-};
+}; */
 
 
-var icrc7_migration_state = ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+var icrc7_migration_state = ICRC7.initialState();
 
-let #v0_1_0(#data(icrc7_state_current)) = icrc7_migration_state; 
+
 
 func get_icrc7_state(): ICRC7.CurrentState{
-  return icrc7_state_current;
-};
+  let #v0_1_0(#data(icrc7_state_current)) = icrc7_migration_state; 
+  icrc7_state_current;
+}; 
 
+func getEnvironment() : ICRC7.Environment{
+  return base_environment;
+};
 let base_environment= {
   canister = get_canister;
   get_time = get_time;
@@ -99,8 +106,32 @@ let base_environment= {
   can_update = null;
 };
 
-test("symbol can be initialized and updated", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+func onInitialize(newClass : ICRC7.ICRC7) : async* (){
+  
+};
+
+func storageChange(state : ICRC7.State) : (){
+    icrc7_migration_state := state;
+};
+
+func getICRC7Class<system>(args: ICRC7.InitArgs) : ICRC7.ICRC7 {
+  let manager = ClassPlusLib.ClassPlusInitializationManager(testOwner, get_canister(), false);
+  let aClass = ICRC7.Init<system>({
+    manager = manager;
+    initialState = ICRC7.initialState();
+    args = args;
+    pullEnvironment =  ?getEnvironment;
+    onInitialize = ?onInitialize;
+    onStorageChange = storageChange
+  });
+  
+  return aClass();
+};
+
+testsys<system>("symbol can be initialized and updated", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
+  
+
   assert(icrc7.get_ledger_info().symbol == ?"anft");
 
   ignore icrc7.update_ledger_info([#Symbol(?"updated")]);
@@ -108,67 +139,67 @@ test("symbol can be initialized and updated", func() {
 
 });
 
-test("name can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("name can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().name == ?"A Test NFT");
   ignore icrc7.update_ledger_info([#Symbol(?"updated")]);
   assert(icrc7.get_ledger_info().symbol == ?"updated");
 });
 
-test("description can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("description can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().description == ?"A Descripton");
   ignore icrc7.update_ledger_info([#Description(?"updated")]);
   assert(icrc7.get_ledger_info().description == ?"updated");
 });
 
-test("logo can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("logo can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().logo == ?"http://example.com/test.png");
   ignore icrc7.update_ledger_info([#Logo(?"updated")]);
   assert(icrc7.get_ledger_info().logo == ?"updated");
 });
 
-test("supply cap can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("supply cap can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().supply_cap == ?100);
   ignore icrc7.update_ledger_info([#SupplyCap(?1000)]);
   assert(icrc7.get_ledger_info().supply_cap == ?1000);
 });
 
-test("max_query_batch_size can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("max_query_batch_size can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().max_query_batch_size == 102);
   ignore icrc7.update_ledger_info([#MaxQueryBatchSize(1000)]);
   assert(icrc7.get_ledger_info().max_query_batch_size == 1000);
 });
 
-test("max_update_batch_size can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("max_update_batch_size can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().max_update_batch_size == 103);
   ignore icrc7.update_ledger_info([#MaxUpdateBatchSize(1000)]);
   assert(icrc7.get_ledger_info().max_update_batch_size == 1000);
 });
 
-test("default_take_value can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("default_take_value can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().default_take_value == 104);
   ignore icrc7.update_ledger_info([#DefaultTakeValue(1000)]);
   assert(icrc7.get_ledger_info().default_take_value == 1000);
 });
 
-test("max_take_value can be initialized", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+testsys<system>("max_take_value can be initialized", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   assert(icrc7.get_ledger_info().max_take_value == 105);
   ignore icrc7.update_ledger_info([#MaxTakeValue(1000)]);
   assert(icrc7.get_ledger_info().max_take_value == 1000);
 });
 
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
-test("ICRC7 contract initializes with correct default state", func() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+
+testsys<system>("ICRC7 contract initializes with correct default state", func<system>() {
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   D.print(debug_show(icrc7.get_ledger_info()));
   assert(icrc7.get_ledger_info().symbol == ?"anft");
   assert(icrc7.get_ledger_info().name == ?"A Test NFT");
@@ -183,14 +214,14 @@ test("ICRC7 contract initializes with correct default state", func() {
   assert(icrc7.get_collection_owner() == testOwner);
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 
 testsys<system>("Query for token metadata by ID should return correct token metadata",  func <system>(){
 
   D.print("starting token metatdata test");
   // The ICRC7 class and base environment are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   // For this test to succeed, a token with `token_id` must have been minted,
   // and its metadata should be set in the state before querying.
@@ -216,12 +247,11 @@ testsys<system>("Query for token metadata by ID should return correct token meta
   assert(CandyTypesLib.eq(CandyTypesLib.unshare(metadata), found_nft.meta));
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 testsys<system>("Query for batched token metadata by a list of IDs should return correct metadata for all queried tokens", func<system>() {
 
   // The ICRC7 class and base environment are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   // For this test to succeed, multiple tokens with `token_ids` must have been minted,
   // and their metadata should be set in the state before querying.
@@ -284,11 +314,11 @@ testsys<system>("Query for batched token metadata by a list of IDs should return
 
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 testsys<system>("Query for the owner of a specific token ID should return correct owner information", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   // For this test to succeed, a token with `token_id` must have been minted,
   // and its ownership information should be set in the state before querying.
@@ -323,11 +353,11 @@ testsys<system>("Query for the owner of a specific token ID should return correc
   assert(ICRC7.account_eq(ownerResponse2, {owner = testOwner; subaccount = ?ownerSubaccount}));
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 testsys<system>("Query for token ownership metadata directly from token metadata", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   // Sample token ID for testing
   let token_id = 1; // Assuming token ID `1` has been minted with known ownership information
@@ -343,11 +373,11 @@ testsys<system>("Query for token ownership metadata directly from token metadata
   
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 testsys<system>("Query for a list of token IDs owned by an account should return correct set of token IDs", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   // For this test to succeed, tokens must have been minted and assigned to the test owner account.
   // This represents the 'Arrange' part of the test (Arrange-Act-Assert)
@@ -386,12 +416,12 @@ testsys<system>("Query for a list of token IDs owned by an account should return
   assert(2 == count);
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 
 testsys<system>("Paginate through the list of tokens and receive the correct page of tokens", func<system>() {
   // The ICRC7 class and base environment are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   let token_ids = [1, 2, 3, 4, 5, 6, 7, 8 ,9, 10]; // Assuming tokens with IDs 1, 2, and 3 have been minted with known metadata
   let metadata1 = baseNFT;
@@ -417,11 +447,11 @@ testsys<system>("Paginate through the list of tokens and receive the correct pag
   assert(Array.equal<Nat>(page2,[4, 5, 6], Nat.equal));
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 testsys<system>("Paginate through the list of tokens owned by an account", func<system>() {
   // Assuming ICRC7 class, base environment, and baseNFT are set up from the provided framework
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   let account = testOwner; // Replace testOwner with the account whose tokens need pagination
   let expectedTokens1 = [1, 2, 3]; // Replace with the expected tokens for the given account
   let expectedTokens2 = [4, 5]; // Replace with the expected tokens for the given account
@@ -450,11 +480,10 @@ testsys<system>("Paginate through the list of tokens owned by an account", func<
   assert(Array.equal(paginatedTokens2, expectedTokens2, Nat.equal));
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 
 testsys<system>("Transfer a token to another account", func<system>() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   
   // Arrange: Set up the necessary variables for the transfer
   let tokenOwner = testOwner; // Replace with appropriate owner principal
@@ -472,7 +501,7 @@ testsys<system>("Transfer a token to another account", func<system>() {
     to = toAccount;
     token_id = token_id;
     memo = ?Text.encodeUtf8("Transfer memo");
-    created_at_time = ?test_time;  // Replace with the current timestamp
+    created_at_time = ?Nat64.fromNat(Int.abs(Time.now()));  // Replace with the current timestamp
   }];
 
   D.print("about to transfer" # debug_show(transferArgs));
@@ -511,11 +540,10 @@ testsys<system>("Transfer a token to another account", func<system>() {
   
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
 
 testsys<system>("Reject Transfer Attempt by Unauthorized User", func<system>() {
   // Arrange: Set up the ICRC7 instance, current test environment, and required variables
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
 
   let token_id = 1;  // Assuming token with ID 1 exists
   let metadata = baseNFT;
@@ -551,12 +579,12 @@ testsys<system>("Reject Transfer Attempt by Unauthorized User", func<system>() {
   ); //"Transfer attempt is rejected"
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 
 testsys<system>("Update the metadata for the ledger", func<system>() {
   // Arrange: Setup the ICRC7 instance with the initial state
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   let newSymbol = "anft_updated";
   let newName = "Updated Test NFT";
   let newDescription = "An Updated Descripton";
@@ -578,11 +606,11 @@ testsys<system>("Update the metadata for the ledger", func<system>() {
   assert(icrc7.get_ledger_info().logo == ?"http://example.com/updated.png"); // "Logo is updated correctly"
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 testsys<system>("Set metadata for a new NFT token", func<system>() {
   // Arrange: Set up the ICRC7 instance and required parameters
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   let token_id = 11;  // Assuming a new token ID
   let metadata = baseNFT;  // Define the metadata for the new NFT
 
@@ -597,12 +625,12 @@ testsys<system>("Set metadata for a new NFT token", func<system>() {
   );
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 
 testsys<system>("Update immutable and non-immutable NFT properties", func<system>() {
   //Arrange: Set up the ICRC7 instance and required parameters
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   let token_id = 12;  // Assuming a token ID for testing
   let initialMetadata = #Class([
     {name="test"; value=#Text("initialTestValue"); immutable = false},
@@ -652,12 +680,10 @@ testsys<system>("Update immutable and non-immutable NFT properties", func<system
   );
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
-
 
 testsys<system>("Attempt to transfer with duplicate or empty token ID arrays", func<system>() {
   // Arrange: Set up the ICRC7 instance and approval parameters
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   let tokenOwner = {owner = testOwner; subaccount=null};  // Replace with appropriate owner principal
   let tokenCanister = {owner = testCanister; subaccount=null};  // Replace with appropriate owner principal
   let tokenIdsWithDuplicates = [1, 2, 3, 4, 5, 5];  // Token ID array with duplicate items
@@ -727,10 +753,10 @@ testsys<system>("Attempt to transfer with duplicate or empty token ID arrays", f
 
 });
 
-icrc7_migration_state := ICRC7.init(ICRC7.initialState(), #v0_1_0(#id), ?baseCollection, testOwner);
+
 
 testsys<system>("Test DeDupe on transfer", func<system>() {
-  let icrc7 = ICRC7.ICRC7(?icrc7_migration_state, testCanister, base_environment);
+  let icrc7 = getICRC7Class<system>(?baseCollection);
   
   // Arrange: Set up the necessary variables for the transfer
   let tokenOwner = testOwner; // Replace with appropriate owner principal
@@ -809,10 +835,9 @@ testsys<system>("Test DeDupe on transfer", func<system>() {
   assert(ownerResponse.subaccount == fromAccount.subaccount);
     
 
-  //advance time more than two minutes
-    ignore set_time(get_time64() + (1_000_000_000 * 60 * 2) + 1);
+  //chaning the time should dedupe
 
-    let #ok(transferResults4) = icrc7.transfer_tokens<system>(tokenOwner, [{transferArgs[0] with created_at_time = ?get_time64()}]) else return assert(false);
+    let #ok(transferResults4) = icrc7.transfer_tokens<system>(tokenOwner, [{transferArgs[0] with created_at_time = ?(get_time64() +  1)}]) else return assert(false);
 
     D.print("unduped " # debug_show(transferResults4));
 
